@@ -688,8 +688,25 @@ function enVoices(){try{return speechSynthesis.getVoices().filter(v=>/^en[-_]/i.
 function voiceScore(v){let s=0;if(/^google us english/i.test(v.name))s+=1000;if(/en[-_]US/i.test(v.lang)&&/samantha|ava|allison|susan|zoe|nicky|joelle|evan|female|sfg|tpf|iob|english united states|english \(united states\)/i.test(v.name))s+=300;if(/daniel|alex|fred|aaron|male|tpd|iom/i.test(v.name)&&!/female/i.test(v.name))s-=200;if(/premium|enhanced|natural|neural/i.test(v.name))s+=50;if(/samantha|ava|allison|susan|google us english|jenny|aria|zoe|karen|serena|moira|tessa|daniel/i.test(v.name))s+=20;if(/en[-_]US/i.test(v.lang))s+=10;if(/en[-_]GB/i.test(v.lang))s+=5;return s}
 function loadVoice(){try{if(!prog.voiceV2){delete prog.voiceName;prog.voiceV2=1;saveProg()}const vs=enVoices().sort((a,b)=>voiceScore(b)-voiceScore(a));voice=vs.find(v=>v.name===prog.voiceName)||vs[0]||null}catch(e){}}
 if('speechSynthesis' in window){setTimeout(loadVoice,0);speechSynthesis.onvoiceschanged=loadVoice}
-function say(text,onend){try{if(!('speechSynthesis' in window)){onend&&onend();return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';if(voice)u.voice=voice;u.rate=prog.rate||.8;u.pitch=prog.pitch||1.1;if(onend)u.onend=onend;speechSynthesis.speak(u)}catch(e){onend&&onend()}}
-function stopSay(){try{speechSynthesis.cancel()}catch(e){}try{stopMusic()}catch(e){}}
+function sayTTS(text,onend){try{if(!('speechSynthesis' in window)){onend&&onend();return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';if(voice)u.voice=voice;u.rate=prog.rate||.8;u.pitch=prog.pitch||1.1;if(onend)u.onend=onend;speechSynthesis.speak(u)}catch(e){onend&&onend()}}
+/* recorded voice: audio/manifest.json maps a normalized sentence to an mp3; sentences without a file use the device voice */
+const REC={map:null,buf:new Map(),src:null,tok:0};
+const normKey=t=>String(t).trim().toLowerCase().replace(/’/g,"'").replace(/\s+/g,' ');
+fetch('audio/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(m=>{if(m&&typeof m==='object')REC.map=m}).catch(()=>{});
+const recOn=()=>prog.recVoice!==false&&REC.map&&Object.keys(REC.map).length>0;
+function recFiles(text){if(!recOn())return null;const k=normKey(text),f=REC.map[k];if(f)return[f];
+ const parts=k.split(/,\s*/);if(parts.length>1){const fs=parts.map(p=>REC.map[p]||REC.map[p.replace(/[.!?]+$/,'')]);if(fs.every(Boolean))return fs}return null}
+function recBuffer(f){if(!REC.buf.has(f))REC.buf.set(f,fetch('audio/'+f).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(a=>new Promise((ok,no)=>{const c=ac();if(!c)return no();c.decodeAudioData(a,ok,no)})).catch(e=>{REC.buf.delete(f);throw e}));return REC.buf.get(f)}
+function recStop(){REC.tok++;if(REC.src){try{REC.src.onended=null;REC.src.stop()}catch(e){}REC.src=null}}
+function recPlay(files,text,onend){recStop();const tok=REC.tok,c=ac();let i=0;
+ const fail=()=>{if(tok===REC.tok)sayTTS(text,onend)};
+ if(!c)return fail();
+ const next=()=>{if(tok!==REC.tok)return;if(i>=files.length){onend&&onend();return}
+  recBuffer(files[i++]).then(b=>{if(tok!==REC.tok)return;const s=c.createBufferSource();s.buffer=b;s.connect(c.destination);REC.src=s;
+   s.onended=()=>{if(tok!==REC.tok)return;REC.src=null;files.length>1&&i<files.length?setTimeout(next,120):next()};s.start()},()=>{if(i===1)fail();else next()})};
+ next()}
+function say(text,onend){try{speechSynthesis.cancel()}catch(e){}const fs=recFiles(text);if(fs){recPlay(fs,text,onend);return}recStop();sayTTS(text,onend)}
+function stopSay(){recStop();try{speechSynthesis.cancel()}catch(e){}try{stopMusic()}catch(e){}}
 function speaker(text,size){const b=h('button',{class:'spk '+(size||'big'),'aria-label':'Listen'},artEl('spk'));b.addEventListener('click',e=>{e.stopPropagation();ac();b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');say(typeof text==='function'?text():text)});return b}
 
 /* ---------- progress ---------- */
@@ -765,10 +782,12 @@ function voicePanel(){stopSay();const ov=h('div',{class:'vmodal'}),box=h('div',{
   const list=h('div',{class:'vlist'});
   if(!vs.length)list.append(h('p',{},'No English voices found on this device.'));
   vs.forEach(v=>{const on=voice&&v.name===voice.name;const b=h('button',{class:'vitemb'+(on?' on':'')},h('span',{class:'vn'},v.name.replace(/\(.*?\)/g,'').trim()),h('span',{class:'vl'},v.lang.replace('_','-')+(voiceScore(v)>=50?' · ★ HD':'')),h('span',{class:'vp'},on?'✓':'▶'));
-   b.onclick=()=>{prog.voiceName=v.name;saveProg();voice=v;say(sample);render()};list.append(b)});
-  const seg=(label,key,opts,def)=>h('div',{class:'vseg'},h('b',{},label),...opts.map(([t,val])=>{const cur=(prog[key]||def)===val;const b=h('button',{class:cur?'on':''},t);b.onclick=()=>{prog[key]=val;saveProg();say(sample);render()};return b}));
+   b.onclick=()=>{prog.voiceName=v.name;saveProg();voice=v;recStop();sayTTS(sample);render()};list.append(b)});
+  const seg=(label,key,opts,def)=>h('div',{class:'vseg'},h('b',{},label),...opts.map(([t,val])=>{const cur=(prog[key]||def)===val;const b=h('button',{class:cur?'on':''},t);b.onclick=()=>{prog[key]=val;saveProg();recStop();sayTTS(sample);render()};return b}));
+  const hasRec=REC.map&&Object.keys(REC.map).length>0,rOn=prog.recVoice!==false;
+  const recSeg=hasRec?h('div',{class:'vseg'},h('b',{},"Angel's voice"),...[['🎙️ Recorded',true],['📱 Device',false]].map(([tx,v])=>{const b=h('button',{class:rOn===v?'on':''},tx);b.onclick=()=>{ac();prog.recVoice=v;saveProg();say(sample);render()};return b})):null;
   const tOn=prog.talk!==false;const talkSeg=h('div',{class:'vseg'},h('b',{},'Talk'),...[['🗣️ On',true],['Off',false]].map(([tx,v])=>{const b=h('button',{class:tOn===v?'on':''},tx);b.onclick=()=>{prog.talk=v;saveProg();render()};return b}),prog.kidName?h('button',{onclick:()=>{delete prog.kidName;saveProg();render()}},'Forget name: '+prog.kidName):null);
-  box.append(h('div',{class:'vhead'},h('h2',{},'⚙️ Settings'),h('button',{class:'back',onclick:close},'✕')),talkSeg,h('div',{class:'vtip'},'Talk: Angel asks a question before each game and listens to the answer (needs the microphone; works in Safari and Chrome).'),h('h3',{class:'vh3'},'🔊 Voice'),
+  box.append(h('div',{class:'vhead'},h('h2',{},'⚙️ Settings'),h('button',{class:'back',onclick:close},'✕')),talkSeg,h('div',{class:'vtip'},'Talk: Angel asks a question before each game and listens to the answer (needs the microphone; works in Safari and Chrome).'),h('h3',{class:'vh3'},'🔊 Voice'),recSeg,hasRec?h('div',{class:'vtip'},'Recorded: Angel speaks with a natural recorded voice. Sentences without a recording (like ones with a name) use the device voice below.'):null,
    seg('Speed','rate',[['🐢 Slow',.65],['🙂 Normal',.8],['🐇 Fast',.95]],.8),
    seg('Pitch','pitch',[['Low',.9],['Normal',1.1],['Kid',1.35]],1.1),
    h('div',{class:'vtip'},'Tap a voice to hear it. ★ HD voices sound best. On iPad you can download better voices in Settings → Accessibility → Spoken Content → Voices → English.'),list)};
