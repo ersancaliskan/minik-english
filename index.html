@@ -1294,7 +1294,7 @@ function pShadow(st){const ok=x=>!NOSHADOW.includes(x.key),it=fresh(ok),opts=shu
 function pSounds(st){const it=fresh(x=>!!x.sound),cue=it.sound;
  st.append(inst('Listen 🎵 Who says this?'),speaker(cue),choiceRow(shuffle([it,...pickN(S.items.filter(x=>x!==it),2)]),vis,o=>o===it,o=>{say('The '+o.say+' says '+o.sound.split('!')[0].toLowerCase()+'!');good(2600)}));
  later(()=>say(cue),450)}
-function pSayIt(st){const it=fresh(),line="Make a "+it.say+" face! Say: I'm "+it.say+"!";
+function pSayIt(st){const it=fresh(),line="Make "+(/^[aeiou]/.test(it.say)?"an ":"a ")+it.say+" face! Say: I'm "+it.say+"!";
  const ok=h('button',{class:'btn big',onclick:()=>{ac();if(S.busy)return;say('Great job!');good(1400)}},'✓ I did it!');
  st.append(inst('Make the face and say it! 🗣️'),h('div',{class:'row'},h('div',{class:'bigshow'},vis(it)),speaker(()=>"I'm "+it.say+"!",'mid')),ok);later(()=>say(line),450)}
 function pShowMe(st){const it=fresh(x=>SHOWME.includes(x.key)),cue='Touch the '+it.say+'!';
@@ -1370,8 +1370,8 @@ const Q={
  fingers:{q:()=>"How many fingers do you have? Count them!",opts:[{k:t=>findNum(t)===10,r:"Yes! Ten fingers! Well done!"},{k:t=>findNum(t)!=null,r:"Let's count together: one, two, three, four, five, six, seven, eight, nine, ten! Ten fingers!"}],other:"Let's count: one, two, three, four, five, six, seven, eight, nine, ten!"},
  count5:{q:()=>"Can you count to five? Let's go!",opts:[{k:t=>findNum(t.split(' ').pop()||'')>=5||hasW(t,'five'),r:"Wow! Great counting!"}],other:"Good try! One, two, three, four, five!"},
  eyes:{q:()=>"How many eyes do you have?",opts:[{k:t=>findNum(t)===2,r:"Yes! Two eyes! Blink, blink!"}],other:"Two! You have two eyes!"},
- whereis:{pick:()=>pickN(['nose','head','mouth','ears','eyes'],1)[0],q:p=>"Where is your "+p+"? Touch it and say: it is here!",show:p=>'b_'+(p==='ears'?'ear':p),opts:p=>[{k:['here','it is','yes','this'],r:"Yes! Your "+p+" is there! Great!"}],other:p=>"Touch your "+p+"! It is here!"},
- favanimal:{q:()=>"What is your favorite animal?",opts:ANIMALS.map(([w,,snd])=>({k:[w,w+'s'],r:"A "+w+"! "+(snd?snd+' ':'')+"I like "+w+"s too!",art:'a_'+w})),other:"What a nice animal!"},
+ whereis:{pick:()=>pickN(['nose','head','mouth','ears','eyes'],1)[0],q:p=>(/s$/.test(p)?"Where are your ":"Where is your ")+p+"? Touch "+(/s$/.test(p)?"them":"it")+" and say: "+(/s$/.test(p)?"they are here!":"it is here!"),show:p=>'b_'+(p==='ears'?'ear':p),opts:p=>[{k:['here','it is','they are','yes','this'],r:"Yes! Your "+p+(/s$/.test(p)?" are":" is")+" there! Great!"}],other:p=>"Touch your "+p+(/s$/.test(p)?"! They are here!":"! It is here!")},
+ favanimal:{q:()=>"What is your favorite animal?",opts:ANIMALS.map(([w,,snd])=>({k:[w,w+'s'],r:(/^[aeiou]/.test(w)?"An ":"A ")+w+"! "+(snd?snd+' ':'')+"I like "+(['sheep','fish'].includes(w)?w:w+'s')+" too!",art:'a_'+w})),other:"What a nice animal!"},
  cowsays:{pick:()=>pickN(ANIMALS.filter(a=>a[2]),1)[0],q:a=>"What does the "+a[0]+" say?",show:a=>'a_'+a[0],opts:a=>[{k:[a[2].split('!')[0].toLowerCase().split(' ')[0]],r:"Yes! The "+a[0]+" says "+a[2]}],other:a=>"The "+a[0]+" says "+a[2]},
  food:{q:()=>"What do you like to eat"+nm()+"?",opts:[['pasta','pasta'],['bread','bread'],['egg','eggs'],['cake','cake'],['apple','apples'],['banana','bananas'],['milk','milk'],['pizza','pizza'],['chocolate','chocolate'],['ice cream','ice cream']].map(([k,s])=>({k:[k],r:"Yummy! I like "+s+" too!",art:OBJ_GROUPS.food.includes(k)?'o_'+k:(ART[k]?k:null)})),other:"Yummy! Fruit and vegetables make you strong!"},
  bag:{q:()=>"What is in your school bag?",opts:OBJ_GROUPS.school.map(w=>({k:[w,w+'s'],r:()=>short(w)+" Great! You are ready for school!",art:'o_'+w})),other:"Books and pencils! Ready for school!"},

@@ -62,7 +62,7 @@ for t, items in topics.items():
         if it.get('sound'):
             add(it['sound'], 'The '+s+' says '+it['sound'].split('!')[0].lower()+'!')
         if t == 'emotions':
-            add("Make a "+s+" face! Say: I'm "+s+"!")
+            add("Make "+("an " if re.match('[aeiou]', s) else "a ")+s+" face! Say: I'm "+s+"!")
         if t == 'body' and s in SHOWME:
             add('Touch the '+s+'!', 'Yes! '+s+'!')
 
@@ -114,9 +114,11 @@ for c in COLORS:
     add(cap1(c)+"! I love "+c+" too!")
     if c != 'white': add("Yes! It's "+c+"! Great job!", "It's "+c+"! Say it with me: "+c+"!")
 for p in ['nose','head','mouth','ears','eyes']:
-    add("Where is your "+p+"? Touch it and say: it is here!", "Yes! Your "+p+" is there! Great!", "Touch your "+p+"! It is here!")
+    pl = p.endswith('s')
+    add(("Where are your " if pl else "Where is your ")+p+"? Touch "+("them" if pl else "it")+" and say: "+("they are here!" if pl else "it is here!"),
+        "Yes! Your "+p+(" are" if pl else " is")+" there! Great!", "Touch your "+p+("! They are here!" if pl else "! It is here!"))
 for w, snd in ANIMALS:
-    add("A "+w+"! "+(snd+' ' if snd else '')+"I like "+w+"s too!")
+    add(("An " if re.match('[aeiou]', w) else "A ")+w+"! "+(snd+' ' if snd else '')+"I like "+(w if w in ['sheep','fish'] else w+'s')+" too!")
     if snd: add("What does the "+w+" say?", "Yes! The "+w+" says "+snd, "The "+w+" says "+snd)
 for s in ['pasta','bread','eggs','cake','apples','bananas','milk','pizza','chocolate','ice cream']:
     add("Yummy! I like "+s+" too!")
