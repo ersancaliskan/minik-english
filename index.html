@@ -685,9 +685,9 @@ function sndWin(){[523,659,784,1046,1318].forEach((f,i)=>tone(f,i*.11,.32,'trian
 let voice=null;
 const NOVELTY=/bubbles|bells|boing|cellos|bad news|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|bahh|fred|junior|ralph|kathy|grandma|grandpa|eddy|flo|reed|rocko|sandy|shelley/i;
 function enVoices(){try{return speechSynthesis.getVoices().filter(v=>/^en[-_]/i.test(v.lang)&&!NOVELTY.test(v.name))}catch(e){return[]}}
-function voiceScore(v){let s=0;if(/premium|enhanced|natural|neural/i.test(v.name))s+=50;if(/samantha|ava|allison|susan|google us english|jenny|aria|zoe|karen|serena|moira|tessa|daniel/i.test(v.name))s+=20;if(/en[-_]US/i.test(v.lang))s+=10;if(/en[-_]GB/i.test(v.lang))s+=5;return s}
-function loadVoice(){const vs=enVoices().sort((a,b)=>voiceScore(b)-voiceScore(a));voice=vs.find(v=>v.name===prog.voiceName)||vs[0]||null}
-if('speechSynthesis' in window){loadVoice();speechSynthesis.onvoiceschanged=loadVoice}
+function voiceScore(v){let s=0;if(/^google us english/i.test(v.name))s+=1000;if(/premium|enhanced|natural|neural/i.test(v.name))s+=50;if(/samantha|ava|allison|susan|google us english|jenny|aria|zoe|karen|serena|moira|tessa|daniel/i.test(v.name))s+=20;if(/en[-_]US/i.test(v.lang))s+=10;if(/en[-_]GB/i.test(v.lang))s+=5;return s}
+function loadVoice(){try{if(!prog.voiceV2){delete prog.voiceName;prog.voiceV2=1;saveProg()}const vs=enVoices().sort((a,b)=>voiceScore(b)-voiceScore(a));voice=vs.find(v=>v.name===prog.voiceName)||vs[0]||null}catch(e){}}
+if('speechSynthesis' in window){setTimeout(loadVoice,0);speechSynthesis.onvoiceschanged=loadVoice}
 function say(text,onend){try{if(!('speechSynthesis' in window)){onend&&onend();return}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';if(voice)u.voice=voice;u.rate=prog.rate||.8;u.pitch=prog.pitch||1.1;if(onend)u.onend=onend;speechSynthesis.speak(u)}catch(e){onend&&onend()}}
 function stopSay(){try{speechSynthesis.cancel()}catch(e){}try{stopMusic()}catch(e){}}
 function speaker(text,size){const b=h('button',{class:'spk '+(size||'big'),'aria-label':'Listen'},artEl('spk'));b.addEventListener('click',e=>{e.stopPropagation();ac();b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');say(typeof text==='function'?text():text)});return b}
@@ -760,7 +760,7 @@ const P={
 let S=null;
 function voicePanel(){stopSay();const ov=h('div',{class:'vmodal'}),box=h('div',{class:'vbox'});ov.append(box);
  const close=()=>ov.remove();ov.onclick=e=>{if(e.target===ov)close()};
- const sample="Hello! I'm Ada. One, two, three! Let's play!";
+ const sample="Hello! I'm Angel. One, two, three! Let's play!";
  const render=()=>{box.innerHTML='';const vs=enVoices().sort((a,b)=>voiceScore(b)-voiceScore(a));
   const list=h('div',{class:'vlist'});
   if(!vs.length)list.append(h('p',{},'No English voices found on this device.'));
@@ -768,7 +768,7 @@ function voicePanel(){stopSay();const ov=h('div',{class:'vmodal'}),box=h('div',{
    b.onclick=()=>{prog.voiceName=v.name;saveProg();voice=v;say(sample);render()};list.append(b)});
   const seg=(label,key,opts,def)=>h('div',{class:'vseg'},h('b',{},label),...opts.map(([t,val])=>{const cur=(prog[key]||def)===val;const b=h('button',{class:cur?'on':''},t);b.onclick=()=>{prog[key]=val;saveProg();say(sample);render()};return b}));
   const tOn=prog.talk!==false;const talkSeg=h('div',{class:'vseg'},h('b',{},'Talk'),...[['🗣️ On',true],['Off',false]].map(([tx,v])=>{const b=h('button',{class:tOn===v?'on':''},tx);b.onclick=()=>{prog.talk=v;saveProg();render()};return b}),prog.kidName?h('button',{onclick:()=>{delete prog.kidName;saveProg();render()}},'Forget name: '+prog.kidName):null);
-  box.append(h('div',{class:'vhead'},h('h2',{},'⚙️ Settings'),h('button',{class:'back',onclick:close},'✕')),talkSeg,h('div',{class:'vtip'},'Talk: Ada asks a question before each game and listens to the answer (needs the microphone; works in Safari and Chrome).'),h('h3',{class:'vh3'},'🔊 Voice'),
+  box.append(h('div',{class:'vhead'},h('h2',{},'⚙️ Settings'),h('button',{class:'back',onclick:close},'✕')),talkSeg,h('div',{class:'vtip'},'Talk: Angel asks a question before each game and listens to the answer (needs the microphone; works in Safari and Chrome).'),h('h3',{class:'vh3'},'🔊 Voice'),
    seg('Speed','rate',[['🐢 Slow',.65],['🙂 Normal',.8],['🐇 Fast',.95]],.8),
    seg('Pitch','pitch',[['Low',.9],['Normal',1.1],['Kid',1.35]],1.1),
    h('div',{class:'vtip'},'Tap a voice to hear it. ★ HD voices sound best. On iPad you can download better voices in Settings → Accessibility → Spoken Content → Voices → English.'),list)};
@@ -934,7 +934,7 @@ const short=k=>['pasta','milk','water','bread','shoes','scissors'].includes(k)?c
 const INTROS={
  async numbers(V){const r=getRange(),ns=range(r.min,Math.min(r.max,r.min+9));
   V.bg('party');V.adaAt(16,46);await V.wait(400);V.hop();
-  await V.say("Hi! I'm Ada. Today is my birthday!");
+  await V.say("Hi! I'm Angel. Today is my birthday!");
   V.add('o_cake',50,64,26);await V.wait(400);
   const bs=[];
   for(let i=0;i<ns.length;i++){const n=ns[i],x=ns.length>1?24+i*(66/(ns.length-1)):50,y=34+(i%2?10:0);
@@ -1283,7 +1283,7 @@ function pShowMe(st){const it=fresh(x=>SHOWME.includes(x.key)),cue='Touch the '+
  fig.addEventListener('pointerdown',e=>{ac();if(S.busy)return;const t=e.target&&e.target.closest?e.target.closest('[data-part]'):null;if(!t)return;
   const part=t.getAttribute('data-part');
   if((ACCEPT[it.key]||[it.key]).includes(part)){sparkAt(e.clientX,e.clientY,14);say('Yes! '+it.say+'!');good(1600)}else bad(fig)});
- st.append(h('div',{class:'row'},speaker(cue,'mid'),inst('Listen 👂 and touch it on Ada')),fig);later(()=>say(cue),450)}
+ st.append(h('div',{class:'row'},speaker(cue,'mid'),inst('Listen 👂 and touch it on Angel')),fig);later(()=>say(cue),450)}
 
 /* ---------- practices (numbers only) ---------- */
 const THINGS=['apple','star','ladybug','fish','flower','chick','strawberry','balloon','heart','orange'];
@@ -1333,7 +1333,7 @@ function listen(sec=7){return new Promise(res=>{if(!SRec)return res(null);let r,
  setTimeout(()=>fin(null),sec*1000)})}
 /* each question: q (text|fn), opts [{k:[words]|fn(txt), r:reply|fn(txt), art}], other: reply when heard but not matched, choices: art keys to tap */
 const Q={
- name:{q:()=>"Hi! I'm Ada. What's your name?",free:true,
+ name:{q:()=>"Hi! I'm Angel. What's your name?",free:true,
   parse:t=>{let m=t.match(/(?:my name is|my name's|i am|i'm|name is)\s+([a-zçğıöşü]+)/i);let n=m?m[1]:t.split(/\s+/).filter(w=>!['my','name','is','hi','hello','i','am'].includes(w)).pop();return n?n.charAt(0).toUpperCase()+n.slice(1):null},
   r:n=>"Nice to meet you, "+n+"!"},
  howareyou:{q:()=>"How are you today"+nm()+"?",opts:[
