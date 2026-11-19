@@ -346,6 +346,26 @@ button{font-family:inherit;color:inherit;border:0;cursor:pointer;background:none
 .vitemb{display:flex;align-items:center;gap:10px;background:#fff;border-radius:18px;padding:12px 16px;text-align:left;box-shadow:var(--shadow);border:3px solid transparent}
 .vitemb.on{border-color:var(--ok);background:#E5FFF1}.vn{flex:1;font-size:19px;font-weight:800}.vl{font-size:14px;opacity:.6}.vp{font-size:22px;width:28px;text-align:center}
 
+/* talk with Ada */
+.talk{display:flex;flex-direction:column;align-items:center;gap:clamp(10px,2vh,20px);width:100%}
+.trow{display:flex;align-items:center;gap:clamp(10px,2vw,24px)}
+.tcol{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.mascot.talkM{width:clamp(170px,24vw,280px);animation:float 3s ease-in-out infinite}
+.tbub{position:relative;background:#3D9BE9;color:#fff;font-weight:800;font-size:clamp(24px,3.6vw,38px);line-height:1.15;border-radius:28px;padding:14px 26px;box-shadow:0 6px 0 #2A78BD;max-width:min(560px,60vw);animation:pop .4s}
+.tbub:before{content:'';position:absolute;left:-16px;top:40%;border:12px solid transparent;border-right:18px solid #3D9BE9;border-left:0}
+.tshow{background:#fff;border-radius:24px;padding:10px 18px;box-shadow:var(--shadow);font-size:clamp(80px,12vh,120px);line-height:0}
+.trow2{display:flex;align-items:center;gap:16px}
+.kbub{background:#fff;border:4px solid #FFC93C;border-radius:24px;padding:8px 22px;font-size:clamp(22px,3vw,32px);font-weight:700;min-width:180px;text-align:center;box-shadow:var(--shadow)}
+.kbub.empty{color:#B8A98A}
+.micb{width:clamp(84px,11vw,110px);height:clamp(84px,11vw,110px);border-radius:50%;font-size:clamp(40px,5.4vw,54px);background:linear-gradient(180deg,#FF7BAC,#E8458B);box-shadow:0 7px 0 #B8326B;color:#fff}
+.micb.on{animation:micpulse 1s infinite}
+@keyframes micpulse{0%{box-shadow:0 7px 0 #B8326B,0 0 0 0 rgba(232,69,139,.55)}70%{box-shadow:0 7px 0 #B8326B,0 0 0 26px rgba(232,69,139,0)}100%{box-shadow:0 7px 0 #B8326B,0 0 0 0 rgba(232,69,139,0)}}
+.tchoices{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.tch{background:#fff;border-radius:20px;box-shadow:var(--shadow);font-size:clamp(50px,7vh,70px);line-height:0;padding:8px}
+.tch:active{transform:scale(.92)}
+.tskip{position:absolute;right:20px;bottom:16px;font-size:20px;padding:6px 20px}
+.vh3{margin:14px 0 0;font-size:24px}
+
 /* win */
 .win{text-align:center;animation:pop .5s}
 .trophy{font-size:clamp(100px,16vw,160px);line-height:1;animation:bounce 1s infinite}
@@ -747,7 +767,8 @@ function voicePanel(){stopSay();const ov=h('div',{class:'vmodal'}),box=h('div',{
   vs.forEach(v=>{const on=voice&&v.name===voice.name;const b=h('button',{class:'vitemb'+(on?' on':'')},h('span',{class:'vn'},v.name.replace(/\(.*?\)/g,'').trim()),h('span',{class:'vl'},v.lang.replace('_','-')+(voiceScore(v)>=50?' · ★ HD':'')),h('span',{class:'vp'},on?'✓':'▶'));
    b.onclick=()=>{prog.voiceName=v.name;saveProg();voice=v;say(sample);render()};list.append(b)});
   const seg=(label,key,opts,def)=>h('div',{class:'vseg'},h('b',{},label),...opts.map(([t,val])=>{const cur=(prog[key]||def)===val;const b=h('button',{class:cur?'on':''},t);b.onclick=()=>{prog[key]=val;saveProg();say(sample);render()};return b}));
-  box.append(h('div',{class:'vhead'},h('h2',{},'🔊 Voice'),h('button',{class:'back',onclick:close},'✕')),
+  const tOn=prog.talk!==false;const talkSeg=h('div',{class:'vseg'},h('b',{},'Talk'),...[['🗣️ On',true],['Off',false]].map(([tx,v])=>{const b=h('button',{class:tOn===v?'on':''},tx);b.onclick=()=>{prog.talk=v;saveProg();render()};return b}),prog.kidName?h('button',{onclick:()=>{delete prog.kidName;saveProg();render()}},'Forget name: '+prog.kidName):null);
+  box.append(h('div',{class:'vhead'},h('h2',{},'⚙️ Settings'),h('button',{class:'back',onclick:close},'✕')),talkSeg,h('div',{class:'vtip'},'Talk: Ada asks a question before each game and listens to the answer (needs the microphone; works in Safari and Chrome).'),h('h3',{class:'vh3'},'🔊 Voice'),
    seg('Speed','rate',[['🐢 Slow',.65],['🙂 Normal',.8],['🐇 Fast',.95]],.8),
    seg('Pitch','pitch',[['Low',.9],['Normal',1.1],['Kid',1.35]],1.1),
    h('div',{class:'vtip'},'Tap a voice to hear it. ★ HD voices sound best. On iPad you can download better voices in Settings → Accessibility → Spoken Content → Voices → English.'),list)};
@@ -758,7 +779,7 @@ function showHome(){S=null;stopSay();app.innerHTML='';
  const g=h('div',{class:'grid'});
  TOPICS.filter(t=>!t.parent).forEach(t=>{const done=t.list.filter(k=>prog[t.id+':'+k]).length;
   g.append(h('button',{class:'topic',onclick:()=>{ac();showTopic(t.id)}},h('div',{class:'band',style:'background:'+t.color}),h('div',{class:'em'},artEl(t.art)),h('div',{class:'tr'},t.en),h('div',{class:'prog'},'⭐ '+done+' / 10')))});
- app.append(h('div',{class:'screen scroll'},h('button',{class:'vbtn',onclick:()=>{ac();voicePanel()}},'🔊 Voice'),h('div',{class:'hero'},heroMascot(),h('h1',{},'Minik ',h('span',{},'English'),' 🌈'),h('p',{},'Pick a topic and play!')),g));
+ app.append(h('div',{class:'screen scroll'},h('button',{class:'vbtn',onclick:()=>{ac();voicePanel()}},'⚙️ Settings'),h('div',{class:'hero'},heroMascot(),h('h1',{},'Minik ',h('span',{},'English'),' 🌈'),h('p',{},'Pick a topic and play!')),g));
 }
 function rangePanel(){const r=getRange();
  const upd=(k,d)=>{const x={...r};if(k==='min')x.min=Math.min(Math.max(1,x.min+d),x.max-2);else x.max=Math.max(Math.min(20,x.max+d),x.min+2);prog.numRange=x;saveProg();sndTick();showTopic('numbers')};
@@ -796,7 +817,8 @@ function startPractice(topic,idx,opt={}){stopSay();
  const title=opt.lesson?h('div',{class:'ptitle'},artEl(t.art,'ti'),' Lesson · ',h('span',{class:'lstep'},(L.i+1)+' / '+L.steps.length)):h('div',{class:'ptitle'},artEl('p_'+key,'ti'),' '+p.tr);
  const card=h('div',{class:'bookcard'},h('div',{class:'bookin'},S.cnt,S.stage));
  app.append(h('div',{class:'screen practice'},h('div',{class:'bar'},h('button',{class:'back',onclick:exit},'←'),title,S.masc,opt.lesson?lessonBar():S.dots),card));
- nextRound();
+ const doTalk=talkOn()&&(opt.lesson?key==='learn':key!=='summary');
+ if(doTalk){const sid=S.id;pTalk(S.stage).then(()=>{if(S&&S.id===sid){S.stage.innerHTML='';nextRound()}})}else nextRound();
 }
 /* ---------- lesson mode ---------- */
 const LESSON={emotions:['listen','sayit','match','yesno','memory'],numbers:['listen','match','count','basket','balloon'],colors:['listen','paint','balloon','findall','memory'],weather:['listen','drag','yesno','shadow','memory'],animals:['listen','sounds','balloon','match','shadow'],body:['listen','showme','match','yesno','findall']};
@@ -1296,6 +1318,93 @@ function pMissing(st){const r=getRange(),len=Math.min(4,r.max-r.min+1),s=r.min+r
  st.append(inst('Which number is missing? 🧩'),h('div',{class:'row'},speaker(readSeq,'mid'),h('div',{class:'slots'},cells)),
   choiceRow(options(it),vis,o=>o===it,()=>{const c=cells[miss];c.className='slot full';c.textContent='';c.append(vis(it));say(seq.map(v=>NW[v]).join(', '));good(2600)}));
  later(()=>say(readSeq()),450)}
+
+/* ---------- Talk with Ada (speech Q&A) ---------- */
+const SRec=window.SpeechRecognition||window.webkitSpeechRecognition;
+const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const NUMW={zero:0,one:1,two:2,to:2,too:2,three:3,four:4,for:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12};
+const hasW=(txt,w)=>new RegExp('(^|[^a-z])'+w+'([^a-z]|$)').test(txt);
+const findNum=txt=>{const d=txt.match(/\d+/);if(d)return +d[0];for(const w in NUMW)if(hasW(txt,w))return NUMW[w];return null};
+const kidName=()=>prog.kidName||'';
+const nm=()=>kidName()?', '+kidName():'';
+function listen(sec=7){return new Promise(res=>{if(!SRec)return res(null);let r,done=false;const fin=v=>{if(done)return;done=true;try{r.stop()}catch(e){}res(v)};
+ try{r=new SRec();r.lang='en-US';r.interimResults=false;r.maxAlternatives=5;r.continuous=false;
+  r.onresult=e=>fin([...e.results[0]].map(a=>a.transcript.toLowerCase().trim()));r.onerror=()=>fin(null);r.onend=()=>setTimeout(()=>fin(null),300);r.start()}catch(e){fin(null)}
+ setTimeout(()=>fin(null),sec*1000)})}
+/* each question: q (text|fn), opts [{k:[words]|fn(txt), r:reply|fn(txt), art}], other: reply when heard but not matched, choices: art keys to tap */
+const Q={
+ name:{q:()=>"Hi! I'm Ada. What's your name?",free:true,
+  parse:t=>{let m=t.match(/(?:my name is|my name's|i am|i'm|name is)\s+([a-zçğıöşü]+)/i);let n=m?m[1]:t.split(/\s+/).filter(w=>!['my','name','is','hi','hello','i','am'].includes(w)).pop();return n?n.charAt(0).toUpperCase()+n.slice(1):null},
+  r:n=>"Nice to meet you, "+n+"!"},
+ howareyou:{q:()=>"How are you today"+nm()+"?",opts:[
+  {k:['good','fine','great','okay','ok','happy','well','super'],r:"I'm happy to hear that! Me too!",art:'e_happy'},
+  {k:['sad','not good','bad'],r:"Oh no! Here is a big hug. Let's play and be happy!",art:'e_sad'},
+  {k:['sleepy','tired'],r:"Sleepy? Let's wake up and play!",art:'e_sleepy'},
+  {k:['angry','mad'],r:"Take a deep breath. In... and out. Now let's play!",art:'e_angry'},
+  {k:['scared'],r:"Don't worry, I'm here with you!",art:'e_scared'},
+  {k:['excited'],r:"Yay! I'm excited too!",art:'e_excited'}],other:"Thank you for telling me!"},
+ howold:{q:()=>"How old are you"+nm()+"?",opts:[{k:t=>findNum(t)!=null,r:t=>{const n=findNum(t);return "Wow! You are "+(NW[n]||n)+"! "+(n>=5?"You are so big!":"So cute!")},art:null}],other:"Hmm, how old? Show me with your fingers!",choices:[]},
+ day:{q:()=>"What day is it today?",opts:[{k:t=>DAYS.some(d=>hasW(t,d.toLowerCase())),r:t=>{const today=DAYS[new Date().getDay()];return hasW(t,today.toLowerCase())?"Yes! Today is "+today+"! Well done!":"Good try! Today is "+today+"."}}],other:()=>"Today is "+DAYS[new Date().getDay()]+"!"},
+ weather:{q:()=>"How is the weather today? Look out of the window!",opts:['sunny','rainy','cloudy','snowy','windy','stormy','foggy'].map(w=>({k:[w,w.replace(/y$/,'')],r:"It is "+w+" today! Thank you"+nm()+"!",art:'w_'+w})).concat([{k:['hot'],r:"It is hot! Drink some water!",art:'w_hot'},{k:['cold'],r:"Brrr! It is cold! Wear your coat!",art:'w_cold'}]),other:"Hmm! Is it sunny or rainy?"},
+ favcolor:{q:()=>"What is your favorite color?",opts:COLORS.map(([w])=>({k:[w],r:cap1(w)+"! I love "+w+" too!",art:'c_'+w})),other:"That's a nice color!"},
+ whatcolor:{pick:()=>pickN(COLORS.filter(c=>c[0]!=='white'),1)[0],q:c=>"Look! What color is it?",show:c=>colorArtKey(c[0]),opts:c=>[{k:[c[0]],r:"Yes! It's "+c[0]+"! Great job!"}],other:c=>"It's "+c[0]+"! Say it with me: "+c[0]+"!"},
+ fingers:{q:()=>"How many fingers do you have? Count them!",opts:[{k:t=>findNum(t)===10,r:"Yes! Ten fingers! Well done!"},{k:t=>findNum(t)!=null,r:"Let's count together: one, two, three, four, five, six, seven, eight, nine, ten! Ten fingers!"}],other:"Let's count: one, two, three, four, five, six, seven, eight, nine, ten!"},
+ count5:{q:()=>"Can you count to five? Let's go!",opts:[{k:t=>findNum(t.split(' ').pop()||'')>=5||hasW(t,'five'),r:"Wow! Great counting!"}],other:"Good try! One, two, three, four, five!"},
+ eyes:{q:()=>"How many eyes do you have?",opts:[{k:t=>findNum(t)===2,r:"Yes! Two eyes! Blink, blink!"}],other:"Two! You have two eyes!"},
+ whereis:{pick:()=>pickN(['nose','head','mouth','ears','eyes'],1)[0],q:p=>"Where is your "+p+"? Touch it and say: it is here!",show:p=>'b_'+(p==='ears'?'ear':p),opts:p=>[{k:['here','it is','yes','this'],r:"Yes! Your "+p+" is there! Great!"}],other:p=>"Touch your "+p+"! It is here!"},
+ favanimal:{q:()=>"What is your favorite animal?",opts:ANIMALS.map(([w,,snd])=>({k:[w,w+'s'],r:"A "+w+"! "+(snd?snd+' ':'')+"I like "+w+"s too!",art:'a_'+w})),other:"What a nice animal!"},
+ cowsays:{pick:()=>pickN(ANIMALS.filter(a=>a[2]),1)[0],q:a=>"What does the "+a[0]+" say?",show:a=>'a_'+a[0],opts:a=>[{k:[a[2].split('!')[0].toLowerCase().split(' ')[0]],r:"Yes! The "+a[0]+" says "+a[2]}],other:a=>"The "+a[0]+" says "+a[2]},
+ food:{q:()=>"What do you like to eat"+nm()+"?",opts:[['pasta','pasta'],['bread','bread'],['egg','eggs'],['cake','cake'],['apple','apples'],['banana','bananas'],['milk','milk'],['pizza','pizza'],['chocolate','chocolate'],['ice cream','ice cream']].map(([k,s])=>({k:[k],r:"Yummy! I like "+s+" too!",art:OBJ_GROUPS.food.includes(k)?'o_'+k:(ART[k]?k:null)})),other:"Yummy! Fruit and vegetables make you strong!"},
+ bag:{q:()=>"What is in your school bag?",opts:OBJ_GROUPS.school.map(w=>({k:[w,w+'s'],r:()=>short(w)+" Great! You are ready for school!",art:'o_'+w})),other:"Books and pencils! Ready for school!"},
+ travel:{q:()=>"How do you go to school? By car, by bus, or on foot?",opts:[{k:['car'],r:"By car! Beep beep!",art:'o_car'},{k:['bus'],r:"By bus! The wheels on the bus go round and round!",art:'o_bus'},{k:['walk','foot','feet'],r:"On foot! Walking is great!",art:'b_foot'},{k:['bike','bicycle'],r:"By bike! Cool!",art:'o_bicycle'}],other:"Thank you! Let's play!"},
+ yesno:{pick:()=>pickN([["Do you like ice cream?","Me too! Yummy!","Okay! More for me!"],["Is the sky green?","Hmm, really? The sky is blue!","Right! The sky is blue!"],["Do you like cats?","Me too! Meow!","Okay! Maybe dogs?"],["Is a banana yellow?","Yes! Bananas are yellow!","Hmm, bananas are yellow!"],["Can a fish fly?","Haha! No, fish swim!","Right! Fish swim!"]],1)[0],q:x=>x[0],opts:x=>[{k:['yes','yeah','yep'],r:x[1],art:'yesicon'},{k:['no','nope'],r:x[2],art:'noicon'}],other:"Say yes or no!"},
+};
+const TALK={numbers:['howold','fingers','count5'],colors:['favcolor','whatcolor'],weather:['weather','day'],animals:['favanimal','cowsays'],body:['whereis','eyes'],emotions:['howareyou'],objects:['travel','yesno'],obj_home:['yesno','day'],obj_food:['food'],obj_school:['bag','travel'],obj_play:['travel','yesno']};
+const colorArtKey=w=>'c_'+w;
+COLORS.forEach(([w,c])=>ART['c_'+w]=splat(c));
+ART.noicon=SV('0 0 100 100',`<circle cx="50" cy="50" r="40" fill="#FF5A5F" stroke="${OL}" stroke-width="4"/><path d="M35 35 L65 65 M65 35 L35 65" stroke="#fff" stroke-width="10"/>`);
+ART.yesicon=SV('0 0 100 100',`<circle cx="50" cy="50" r="40" fill="#2EC27E" stroke="${OL}" stroke-width="4"/><path d="M30 52 L44 66 L70 38" fill="none" stroke="#fff" stroke-width="10"/>`);
+let lastTalk='';
+function pickTalk(topic){const t=TOPICS.find(x=>x.id===topic);const pool=[...(TALK[topic]||TALK[t&&t.parent]||[]),'howareyou','day','yesno'];
+ if(!kidName())return 'name';
+ const cand=pool.filter(k=>k!==lastTalk);const k=Math.random()<.7?cand.filter(k=>(TALK[topic]||[]).includes(k))[0]||cand[0]:cand[rnd(cand.length)];
+ const own=(TALK[topic]||TALK[t&&t.parent]||[]).filter(k=>k!==lastTalk);const pick=own.length&&Math.random()<.75?own[rnd(own.length)]:cand[rnd(cand.length)];lastTalk=pick;return pick}
+function talkOn(){return prog.talk!==false}
+function pTalk(st){return new Promise(async resolve=>{
+ const id=S.id,alive=()=>S&&S.id===id;let finished=false;const end=()=>{if(finished)return;finished=true;stopSay();resolve()};
+ const key=pickTalk(S.topic),D=Q[key],ctx=D.pick?D.pick():null;
+ const val=v=>typeof v==='function'?v(ctx):v;
+ const qText=val(D.q),opts=D.free?[]:val(D.opts)||[];
+ const ada=mascotImg('talkM'),bub=h('div',{class:'tbub'},qText),kid=h('div',{class:'kbub empty'},'…');
+ const mic=h('button',{class:'micb'},'🎤');
+ const skip=h('button',{class:'btn alt tskip',onclick:()=>{ac();end()}},'Skip ⏭');
+ const showEl=D.show?h('div',{class:'tshow'},artEl(val(D.show))):null;
+ const choices=h('div',{class:'tchoices'});
+ st.append(h('div',{class:'talk'},h('div',{class:'trow'},ada,h('div',{class:'tcol'},bub,showEl)),h('div',{class:'trow2'},kid,mic),choices),skip);
+ let busy=false;
+ const reply=async(txt,heard)=>{if(busy||!alive())return;busy=true;choices.innerHTML='';mic.classList.remove('on');
+  kid.classList.remove('empty');kid.textContent='“'+heard+'”';
+  bub.textContent=txt;react(ada,'happy');sndOk();await sayP(txt);if(!alive())return;
+  bub.textContent="Let's play!";await sayP("Let's play!");if(alive())setTimeout(end,300)};
+ const handle=async alts=>{
+  if(D.free){const n=alts&&alts.map(a=>D.parse(a)).find(Boolean);if(n){prog.kidName=n;saveProg();return reply(D.r(n),alts[0])}return null}
+  if(!alts)return null;
+  for(const a of alts){for(const o of opts){const ok=typeof o.k==='function'?o.k(a):o.k.some(w=>hasW(a,w));if(ok)return reply(typeof o.r==='function'?o.r(a):o.r,a)}}
+  return reply(val(D.other),alts[0])};
+ // tap fallback choices (pictures)
+ opts.filter(o=>o.art&&ART[o.art]).slice(0,8).forEach(o=>{const b=h('button',{class:'tch'},artEl(o.art));b.onclick=()=>{ac();try{SRec&&cur&&cur.abort&&cur.abort()}catch(e){}reply(typeof o.r==='function'?o.r(Array.isArray(o.k)?o.k[0]:''):o.r,Array.isArray(o.k)?o.k[0]:'👆')};choices.append(b)});
+ let cur=null;
+ const attempt=async n=>{if(!alive()||busy)return;
+  if(!SRec){kid.textContent=opts.some(o=>o.art)?'👆':'…';return}
+  mic.classList.add('on');kid.classList.add('empty');kid.textContent='Listening…';
+  const alts=await listen(7);mic.classList.remove('on');if(!alive()||busy)return;
+  const r=await handle(alts);if(r!==null||busy)return;
+  if(n<1){kid.textContent='…';bub.textContent="I didn't hear you. Say it again!";await sayP("I didn't hear you. Say it again!");return attempt(n+1)}
+  kid.textContent='…';bub.textContent="That's okay! Let's play!";await sayP("That's okay! Let's play!");end()};
+ mic.onclick=()=>{ac();if(!busy&&!mic.classList.contains('on'))attempt(0)};
+ await new Promise(r=>setTimeout(r,250));if(!alive())return;
+ react(ada,'happy');await sayP(qText);if(!alive())return;attempt(0);
+})}
 
 showHome();
 </script>
