@@ -104,7 +104,8 @@ add("Hi! I'm Angel. What's your name?", "How are you today?", "How old are you?"
     "How do you go to school? By car, by bus, or on foot?", "By car! Beep beep!",
     "By bus! The wheels on the bus go round and round!", "On foot! Walking is great!", "By bike! Cool!",
     "Thank you! Let's play!", "Say yes or no!", "I didn't hear you. Say it again!", "That's okay! Let's play!")
-for n in range(1, 13):
+add("Nice to meet you!")  # name lines play without the name
+for n in range(1, 21):
     add("Wow! You are "+NW[n]+"! "+("You are so big!" if n >= 5 else "So cute!"))
 for d in DAYS:
     add("Yes! Today is "+d+"! Well done!", "Good try! Today is "+d+".", "Today is "+d+"!")

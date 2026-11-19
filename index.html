@@ -692,9 +692,10 @@ function sayTTS(text,onend){try{if(!('speechSynthesis' in window)){onend&&onend(
 /* recorded voice: audio/manifest.json maps a normalized sentence to an mp3; sentences without a file use the device voice */
 const REC={map:null,buf:new Map(),src:null,tok:0};
 const normKey=t=>String(t).trim().toLowerCase().replace(/’/g,"'").replace(/\s+/g,' ');
-fetch('audio/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(m=>{if(m&&typeof m==='object')REC.map=m}).catch(()=>{});
+REC.ready=fetch('audio/manifest.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(m=>{if(m&&typeof m==='object')REC.map=m}).catch(()=>{});
 const recOn=()=>REC.map&&Object.keys(REC.map).length>0;
-function recFiles(text){if(!recOn())return null;const k=normKey(text),f=REC.map[k];if(f)return[f];
+function recFiles(text){if(!recOn())return null;let k=normKey(text),f=REC.map[k];if(f)return[f];
+ const kn=normKey(prog.kidName||'');if(kn&&k.includes(kn)){k=k.split(', '+kn).join('').split(kn).join('').replace(/\s+([!?.,])/g,'$1').replace(/\s+/g,' ').trim();f=REC.map[k];if(f)return[f]}
  const parts=k.split(/,\s*/);if(parts.length>1){const fs=parts.map(p=>REC.map[p]||REC.map[p.replace(/[.!?]+$/,'')]);if(fs.every(Boolean))return fs}return null}
 function recBuffer(f){if(!REC.buf.has(f))REC.buf.set(f,fetch('audio/'+f).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(a=>new Promise((ok,no)=>{const c=ac();if(!c)return no();c.decodeAudioData(a,ok,no)})).catch(e=>{REC.buf.delete(f);throw e}));return REC.buf.get(f)}
 function recStop(){REC.tok++;if(REC.src){try{REC.src.onended=null;REC.src.stop()}catch(e){}REC.src=null}}
@@ -705,7 +706,9 @@ function recPlay(files,text,onend){recStop();const tok=REC.tok,c=ac();let i=0;
   recBuffer(files[i++]).then(b=>{if(tok!==REC.tok)return;const s=c.createBufferSource();s.buffer=b;s.connect(c.destination);REC.src=s;
    s.onended=()=>{if(tok!==REC.tok)return;REC.src=null;files.length>1&&i<files.length?setTimeout(next,120):next()};s.start()},()=>{if(i===1)fail();else next()})};
  next()}
-function say(text,onend){try{speechSynthesis.cancel()}catch(e){}const fs=recFiles(text);if(fs){recPlay(fs,text,onend);return}recStop();sayTTS(text,onend)}
+function say(text,onend){try{speechSynthesis.cancel()}catch(e){}
+ if(!REC.map&&!REC.waited){const tok=++REC.tok;Promise.race([REC.ready,new Promise(r=>setTimeout(r,2500))]).then(()=>{REC.waited=true;if(tok===REC.tok)say(text,onend)});return}
+ const fs=recFiles(text);if(fs){recPlay(fs,text,onend);return}recStop();sayTTS(text,onend)}
 function stopSay(){recStop();try{speechSynthesis.cancel()}catch(e){}try{stopMusic()}catch(e){}}
 function speaker(text,size){const b=h('button',{class:'spk '+(size||'big'),'aria-label':'Listen'},artEl('spk'));b.addEventListener('click',e=>{e.stopPropagation();ac();b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse');say(typeof text==='function'?text():text)});return b}
 
