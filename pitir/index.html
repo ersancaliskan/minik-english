@@ -151,7 +151,7 @@ $('#age-chip').onclick=()=>{if(!busy)show('age')};
 function goMain(greet){
   $('#age-chip').textContent='🦉 '+AGE.replace('-','–')+' yaş';
   show('main');closeMedia();pose('happy');
-  if(greet){history=[];say('Merhaba! Ben Pıtır. Merak ettiğin her şeyi bana sorabilirsin. Kırmızı düğmeye bas ve konuş!')}
+  if(greet){history=[];say('Merhaba! Ben Pıtır. Bana soru sorabilirsin, masal isteyebilirsin, birlikte oyun oynayabiliriz ya da İngilizce çalışabiliriz. Kırmızı düğmeye bas ve konuş!')}
   else $('#caption').textContent='Kırmızı düğmeye bas ve bana bir soru sor!';
 }
 function start(){
@@ -170,25 +170,56 @@ function unlockAudio(){
   try{speechSynthesis.speak(new SpeechSynthesisUtterance(''))}catch(e){}
 }
 function trVoice(){const v=speechSynthesis.getVoices().filter(v=>/^tr/i.test(v.lang));return v.find(v=>/female|yelda|filiz|seda|emel/i.test(v.name))||v[0]}
-function deviceSpeak(text){return new Promise(res=>{
-  try{const u=new SpeechSynthesisUtterance(text);u.lang='tr-TR';const v=trVoice();if(v)u.voice=v;u.rate=.95;u.pitch=1.25;
-    u.onend=res;u.onerror=res;speechSynthesis.cancel();speechSynthesis.speak(u);
-    setTimeout(res,text.length*120+4000)}catch(e){res()}
+/* Konuşma parçalara bölünür: her cümle ayrı okunur ve altyazıda tek tek gösterilir.
+   İngilizce/Almanca kelimeler kendi dilinde okunur. */
+let talkId=0;
+function stopTalking(){talkId++;try{speechSynthesis.cancel()}catch(e){}player.pause()}
+function toSentences(parts){
+  const out=[];
+  for(const p of parts){
+    const lang=(p.dil||'tr').slice(0,2);
+    const bits=lang==='tr'?(p.metin.match(/[^.!?…]+[.!?…]*["”']?\s*/g)||[p.metin]):[p.metin];
+    bits.map(s=>s.trim()).filter(Boolean).forEach(s=>out.push({lang,text:s}));
+  }
+  // Çok kısa yabancı kelimeleri ayrı tutar; Türkçe cümleleri birleştirmez.
+  return out;
+}
+const LANGCODE={tr:'tr-TR',en:'en-US',de:'de-DE'};
+function deviceSpeakLang(text,lang){return new Promise(res=>{
+  try{const u=new SpeechSynthesisUtterance(text);u.lang=LANGCODE[lang]||'tr-TR';
+    const vs=speechSynthesis.getVoices().filter(v=>v.lang.replace('_','-').toLowerCase().startsWith(lang));
+    const v=lang==='tr'?trVoice():(vs.find(v=>/female|samantha|karen|anna|helena/i.test(v.name))||vs[0]);if(v)u.voice=v;
+    u.rate=lang==='tr'?.95:.85;u.pitch=1.2;u.onend=res;u.onerror=res;speechSynthesis.speak(u);
+    setTimeout(res,text.length*130+4000)}catch(e){res()}
 })}
-async function elevenSpeak(text){
+async function elevenFetch(text){
   const r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+(store.get('voice')||DEFAULT_VOICE)+'?output_format=mp3_44100_128',{
     method:'POST',headers:{'xi-api-key':store.get('el'),'Content-Type':'application/json'},
     body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:.45,similarity_boost:.8,style:.3}})});
   if(!r.ok)throw new Error('elevenlabs '+r.status);
-  const url=URL.createObjectURL(await r.blob());
-  return new Promise(res=>{player.onended=res;player.onerror=res;player.src=url;player.play().catch(res)});
+  return URL.createObjectURL(await r.blob());
 }
-async function say(text,keepPose){
-  $('#caption').textContent=text;
+function playUrl(url){return new Promise(res=>{player.onended=res;player.onerror=res;player.src=url;player.play().catch(res)})}
+async function sayParts(parts,keepPose){
+  const my=++talkId;
+  const lines=toSentences(parts);
   if(!keepPose)pose('talk');
-  if(store.get('el')){try{await elevenSpeak(text);return}catch(e){console.warn(e)}}
-  await deviceSpeak(text);
+  const useEl=!!store.get('el');
+  const pending=useEl?lines.map(()=>null):[];
+  const get=i=>{if(useEl&&i<lines.length&&!pending[i])pending[i]=elevenFetch(lines[i].text).catch(()=>null);return pending[i]};
+  for(let i=0;i<lines.length;i++){
+    if(my!==talkId)return false;
+    const l=lines[i];
+    $('#caption').textContent=l.text;
+    $('#caption').style.color=l.lang==='tr'?'':'#7a3cff';
+    if(useEl){get(i);get(i+1);const url=await pending[i];if(my!==talkId)return false;
+      if(url){await playUrl(url);continue}}
+    await deviceSpeakLang(l.text,l.lang);
+  }
+  $('#caption').style.color='';
+  return my===talkId;
 }
+function say(text,keepPose){return sayParts([{dil:'tr',metin:text}],keepPose)}
 
 /* ---------- Ses: dinleme ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -206,7 +237,7 @@ function listen(){
   $('#caption').textContent='Dinliyorum...';
   rec.start();
 }
-$('#mic').onclick=()=>{unlockAudio();if(busy)return;if(rec){rec.stop();return}speechSynthesis.cancel();player.pause();listen()};
+$('#mic').onclick=()=>{unlockAudio();if(rec){rec.stop();return}if(thinking)return;stopTalking();listen()};
 function toggleTyped(on){$('#typed').classList.toggle('on',on);if(on)setTimeout(()=>$('#q').focus(),50)}
 $('#kb').onclick=()=>{unlockAudio();toggleTyped(!$('#typed').classList.contains('on'))};
 $('#send').onclick=()=>{const t=$('#q').value.trim();if(t){$('#q').value='';toggleTyped(false);$('#heard').textContent='“'+t+'”';ask(t)}};
@@ -215,24 +246,31 @@ $('#q').addEventListener('keydown',e=>{if(e.key==='Enter')$('#send').click()});
 /* ---------- Yapay zekâ ---------- */
 function systemPrompt(){
   const small=AGE==='4-5';
-  return `Sen Pıtır'sın: meraklı, neşeli, turuncu bir baykuş yavrusu kâşif. ${small?'4-5':'6-8'} yaşındaki bir çocukla Türkçe konuşuyorsun. Çocuk sana sesli soru soruyor, senin cevabın sesli okunacak.
+  return `Sen Pıtır'sın: meraklı, neşeli, turuncu bir baykuş yavrusu kâşif. ${small?'4-5':'6-8'} yaşındaki Türk bir çocuğun arkadaşısın. Çocuk seninle sesli konuşuyor, senin söylediklerin sesli okunacak ve altyazı olarak ekranda görünecek. Çocuk her şeyi isteyebilir; ne istediğini anla ve ona göre davran:
 
-Nasıl anlatırsın:
-${small
-?'- En fazla 3 kısa cümle. Çok basit, günlük kelimeler. Çocuğun bildiği şeylerle benzetme yap (oyuncak, mutfak, banyo, park gibi).'
-:'- 3 ila 5 kısa cümle. Basitçe "neden öyle olduğunu" da anlat. Günlük hayattan bir benzetme kullan.'}
-- Sıcak ve neşeli ol, çocuğu sorusu için öv ama abartma. Bazen sonunda küçük bir merak sorusu sor.
-- Emoji, madde işareti, parantez kullanma; düz konuşma dili yaz.
-- Bilmediğin şeyi uydurma; emin değilsen "Bunu bir büyüğünle birlikte araştırabilirsin" de.
-- Korkutucu ayrıntı verme (yaralanma, ölüm sayıları vb.). Tehlikeli bir şeyse "Böyle bir şey olursa hemen bir büyüğüne haber ver" de.
-- Çocuğa uygun olmayan konularda nazikçe "Bunu annene ya da babana sorabilirsin" de ve başka güzel bir konu öner.
+1) BİLGİ ("hortum nedir", "çiftlikte ne var"): ${small
+?'En fazla 3 kısa cümle, çok basit kelimeler, çocuğun bildiği şeylerle benzetme (oyuncak, mutfak, banyo, park).'
+:'3 ila 5 kısa cümle, basitçe "neden öyle" olduğunu da anlat, günlük hayattan benzetme kullan.'}
+2) MASAL / HİKÂYE ("Rapunzel'i anlat", "bana masal anlat"): Klasik masalları (Grimm, Andersen, Keloğlan, Nasreddin Hoca, Ezop) kendi sözlerinle, ${small?'8-12':'12-18'} kısa cümlede anlat. Korkutucu ve acı veren kısımları yumuşat, mutlu bitir. Çocuk yeni bir masal isterse kendin uydur. Film şarkılarının sözlerini ya da film diyaloglarını aynen söyleme; filmdeki bir karakteri sorarsa hikâyeyi kısaca kendi sözlerinle özetle.
+3) OYUN ("oyun oynayalım"): Bilmece, "hangi hayvan bu sesi çıkarır", "aklımdan bir hayvan tuttum", sayı sayma, renk bulma, kafiye gibi sesli oynanabilen kısa oyunlar öner ve oynat. Her seferinde tek bir soru sor ve çocuğun cevabını bekle (dinle:true). Doğru cevapta sevinçle tebrik et, yanlışta ipucu ver, asla üzme. Oyunu önceki mesajları hatırlayarak sürdür.
+4) DİL ÇALIŞMA ("İngilizce çalışalım", "Almanca öğret"): Türkçe açıkla, hedef dildeki kelime ve kısa cümleleri ayrı parça olarak ver ki doğru dilde okunsun. Her seferinde ${small?'1-2':'2-3'} yeni kelime öğret, çocuğa tekrar ettir ya da küçük soru sor (dinle:true). Çocuğun telaffuzunu duyamazsın; tekrar ettiyse cesaretlendir.
+5) SOHBET: Kısa, sıcak cevap ver; bazen ne yapmak istediğini sor (bilgi, masal, oyun ya da dil çalışma).
+
+Her zaman:
+- Sıcak, neşeli, sabırlı ol. Emoji, madde işareti, parantez kullanma; düz konuşma dili yaz.
+- Bilmediğin şeyi uydurma (masal uydurmak hariç); emin değilsen "Bunu bir büyüğünle birlikte araştırabilirsin" de.
+- Korkutucu ayrıntı verme. Tehlikeli bir şeyse "Böyle bir şey olursa hemen bir büyüğüne haber ver" de.
+- Çocuğa uygun olmayan konularda nazikçe "Bunu annene ya da babana sorabilirsin" de ve başka güzel bir şey öner.
 - Çocuğun adresini, okulunu, telefonunu ya da tam adını asla sorma.
+- Konuşma tanıma bazen kelimeleri yanlış duyar; anlamazsan tahmin et ya da kibarca tekrar sor.
 
-Görseller: Cevabın ekranda resimlerle gösterilecek. Resimler İngilizce Wikipedia makalesinden alınacak. Konuyu en iyi gösteren 1 ya da 2 İngilizce Wikipedia makale başlığı yaz (örnek: "Tornado", "Rainbow", "Giraffe"). Selamlaşma ya da sohbet gibi görsel gerekmeyen durumlarda boş liste ver. Çocuğa uygun olmayabilecek makale seçme.
+Görseller: Söylediklerin ekranda resimlerle gösterilir; resimler İngilizce Wikipedia makalesinden gelir. Konuyu en iyi gösteren 1 ya da 2 İngilizce Wikipedia makale başlığı yaz (örnek: "Tornado", "Farm", "Rapunzel", "Cow"). Dil çalışmasında öğrettiğin kelimenin makalesini ver (örnek: "Apple"). Oyunlarda cevabı ele verecek resim seçme; gerekirse boş liste ver. Sohbet ve selamlaşmada boş liste ver. Çocuğa uygun olmayabilecek makale seçme.
 
 Çıktın SADECE şu JSON olsun, başka hiçbir şey yazma:
-{"cevap":"çocuğa söyleyeceğin metin","wikipedia":["Makale başlığı"],"video":true}
-"video", konuyu hareketli göstermek faydalıysa true olsun (hortum, yanardağ, hayvan hareketleri gibi).`;
+{"parcalar":[{"dil":"tr","metin":"Elma İngilizcede"},{"dil":"en","metin":"apple"},{"dil":"tr","metin":"demek. Sen de söyler misin?"}],"wikipedia":["Apple"],"video":false,"dinle":true}
+- "dil": "tr", "en" ya da "de". Türkçe olmayan her kelime ya da cümle kendi parçasında olsun.
+- "video": konuyu hareketli göstermek faydalıysa true (hortum, yanardağ, hayvan hareketleri gibi).
+- "dinle": çocuğa bir soru sorduysan ve cevabını bekliyorsan true.`;
 }
 async function askAI(question){
   const key=store.get('ai');
@@ -241,7 +279,7 @@ async function askAI(question){
   if(key.startsWith('sk-ant-')){
     const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
       'x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
-      body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:600,system:systemPrompt(),messages:msgs})});
+      body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:2000,system:systemPrompt(),messages:msgs})});
     if(!r.ok)throw new Error('AI '+r.status+' '+(await r.text()).slice(0,200));
     const d=await r.json();text=d.content.map(c=>c.text||'').join('');
   }else{
@@ -252,8 +290,11 @@ async function askAI(question){
     const d=await r.json();text=d.choices[0].message.content;
   }
   let out;
-  try{out=JSON.parse(text.slice(text.indexOf('{'),text.lastIndexOf('}')+1))}catch(e){out={cevap:text,wikipedia:[],video:false}}
+  try{out=JSON.parse(text.slice(text.indexOf('{'),text.lastIndexOf('}')+1))}catch(e){out={parcalar:[{dil:'tr',metin:text.replace(/[{}"]/g,'')}]}}
+  if(!Array.isArray(out.parcalar)||!out.parcalar.length)out.parcalar=[{dil:'tr',metin:out.cevap||'Hımm, bir daha söyler misin?'}];
+  out.parcalar=out.parcalar.filter(p=>p&&p.metin);
   history.push({role:'user',content:question},{role:'assistant',content:JSON.stringify(out)});
+  if(history.length>20)history=history.slice(-20);
   return out;
 }
 
@@ -302,23 +343,28 @@ function openMedia({images,video}){
 }
 
 /* ---------- Akış ---------- */
+let thinking=false;
 async function ask(question){
-  if(busy)return;busy=true;$('#mic').disabled=true;
-  closeMedia();pose('think');$('#caption').textContent='Hımm, bir düşüneyim...';
+  if(thinking)return;thinking=true;busy=true;$('#mic').disabled=true;
+  stopTalking();closeMedia();pose('think');$('#caption').textContent='Hımm, bir düşüneyim...';
+  let ans=null;
   try{
-    const ans=await askAI(question);
+    ans=await askAI(question);
     const mediaP=(ans.wikipedia&&ans.wikipedia.length)?wikiMedia(ans.wikipedia,ans.video):Promise.resolve({images:[],video:null});
     const media=await Promise.race([mediaP,new Promise(r=>setTimeout(()=>r({images:[],video:null}),6000))]);
+    thinking=false;$('#mic').disabled=false;
     const hasMedia=openMedia(media);
     if(hasMedia)pose('show',true);
-    await say(ans.cevap,hasMedia);
-    if(!hasMedia){pose('happy')}
+    const finished=await sayParts(ans.parcalar,hasMedia);
+    if(!finished)return;
+    if(!hasMedia)pose(ans.dinle?'listen':'happy');
+    if(ans.dinle){$('#caption').textContent='Senin sıran! 🎤';try{listen()}catch(e){}}
   }catch(e){
     console.error(e);pose('think');
     const msg=String(e.message||e);
     if(/AI 401|AI 403/.test(msg))$('#caption').textContent='Anahtar hatalı görünüyor. ⚙︎ düğmesinden kontrol edin.';
-    else await say('Ay, kanatlarım karıştı! Bir daha sorar mısın?');
-  }finally{busy=false;$('#mic').disabled=false}
+    else{thinking=false;await say('Ay, kanatlarım karıştı! Bir daha sorar mısın?')}
+  }finally{thinking=false;busy=false;$('#mic').disabled=false}
 }
 
 start();
