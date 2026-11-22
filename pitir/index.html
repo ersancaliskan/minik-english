@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pıtır">
 <title>Pıtır – Meraklı Baykuş</title>
+<link rel="apple-touch-icon" href="https://d8j0ntlcm91z4.cloudfront.net/user_2z7aREX7HPDJ5L6kNw33ieVb9Rq/hf_20261122_153138_615206f0-ae54-42a3-a124-6e4ca857f29e.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -51,6 +54,7 @@ h1{font-size:clamp(34px,6vw,60px);margin:0 0 8px;font-weight:800;color:var(--ora
 #mic{width:96px;height:96px;border-radius:50%;background:var(--red);color:#fff;font-size:44px;display:flex;align-items:center;justify-content:center}
 #mic.rec{animation:pulse 1s infinite;background:#ff2d55}
 #mic:disabled{background:#bbb}
+#mic.off{background:#9aa6b8}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,45,85,.6)}100%{box-shadow:0 0 0 28px rgba(255,45,85,0)}}
 #kb{width:56px;height:56px;border-radius:50%;background:#fff;font-size:26px;display:flex;align-items:center;justify-content:center}
 #typed{display:none;position:absolute;bottom:130px;left:50%;transform:translateX(-50%);width:min(90vw,600px);gap:8px;z-index:6}
@@ -121,8 +125,23 @@ const POSE={
 Object.values(POSE).forEach(u=>{const i=new Image();i.src=u});
 
 const $=s=>document.querySelector(s);
-const store={get:k=>{try{return localStorage.getItem('pitir-'+k)||''}catch(e){return ''}},set:(k,v)=>{try{localStorage.setItem('pitir-'+k,v)}catch(e){}}};
+const mem={};
+const store={get:k=>{let v='';try{v=localStorage.getItem('pitir-'+k)||''}catch(e){}return v||mem[k]||''},set:(k,v)=>{mem[k]=v;try{localStorage.setItem('pitir-'+k,v)}catch(e){}}};
 const DEFAULT_VOICE='EJGs6dWlD5VrB3llhBqB'; // Çiçek
+/* Ayarlar sayfa adresinin # kısmında da saklanır (sunucuya gitmez).
+   Tarayıcı hafızayı silse bile "Ana Ekrana Ekle" ile kaydedilen simge ayarları hatırlar. */
+const HKEYS=['ai','el','voice','age'];
+(function readHash(){
+  const m=location.hash.match(/[#&]p=([^&]+)/);if(!m)return;
+  try{const o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));HKEYS.forEach(k=>{if(o[k]&&!store.get(k))store.set(k,o[k])})}catch(e){}
+})();
+function writeHash(){
+  const o={};HKEYS.forEach(k=>{const v=store.get(k);if(v)o[k]=v});
+  if(!o.ai)return;
+  const p=encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(o)))));
+  try{history_.replaceState(null,'',location.pathname+location.search+'#p='+p)}catch(e){location.hash='p='+p}
+}
+const history_=window.history;
 let AGE=store.get('age');
 let history=[];
 let busy=false;
@@ -136,6 +155,7 @@ $('#save').onclick=()=>{
   const k=$('#k-ai').value.trim();
   if(!k){alert('Yapay zekâ anahtarı gerekli.');return}
   store.set('ai',k);store.set('el',$('#k-el').value.trim());store.set('voice',$('#k-voice').value.trim()||DEFAULT_VOICE);
+  writeHash();
   start();
 };
 $('#gear').onclick=()=>{
@@ -145,20 +165,34 @@ $('#gear').onclick=()=>{
 
 /* ---------- Yaş ---------- */
 $('#age-owl').src=POSE.happy;
-document.querySelectorAll('[data-age]').forEach(b=>b.onclick=()=>{AGE=b.dataset.age;store.set('age',AGE);unlockAudio();goMain(true)});
-$('#age-chip').onclick=()=>{if(!busy)show('age')};
+document.querySelectorAll('[data-age]').forEach(b=>b.onclick=()=>{AGE=b.dataset.age;store.set('age',AGE);writeHash();unlockAudio();goMain(true)});
+$('#age-chip').onclick=()=>{if(!busy){stopListening();stopTalking();show('age')}};
 
-function goMain(greet){
+let started=false;
+async function goMain(greet){
   $('#age-chip').textContent='🦉 '+AGE.replace('-','–')+' yaş';
   show('main');closeMedia();pose('happy');
-  if(greet){history=[];say('Merhaba! Ben Pıtır. Bana soru sorabilirsin, masal isteyebilirsin, birlikte oyun oynayabiliriz ya da İngilizce çalışabiliriz. Kırmızı düğmeye bas ve konuş!')}
-  else $('#caption').textContent='Kırmızı düğmeye bas ve bana bir soru sor!';
+  if(greet){
+    started=true;history=[];
+    const ok=await say('Merhaba! Ben Pıtır. Bana soru sorabilirsin, masal isteyebilirsin, birlikte oyun oynayabiliriz ya da İngilizce çalışabiliriz. Hadi, seni dinliyorum!');
+    if(ok)autoListen();
+  }else{
+    // Tablet ses ve mikrofonu ancak bir dokunuştan sonra açar.
+    $('#caption').textContent='Başlamak için ekrana dokun!';
+  }
 }
 function start(){
+  AGE=AGE||store.get('age');
   if(!store.get('ai')){show('setup');return}
+  writeHash();
   if(!AGE){show('age');return}
   goMain(false);
 }
+// Geri dönen kullanıcı: ilk dokunuşta Pıtır selam verir ve dinlemeye başlar.
+$('#main').addEventListener('click',e=>{
+  if(started||e.target.closest('button,input'))return;
+  unlockAudio();goMain(true);
+});
 
 /* ---------- Ses: konuşma ---------- */
 /* iPad/iPhone sesi sadece dokunuşla açar. Bir dokunuşta açılan AudioContext
@@ -171,6 +205,16 @@ function unlockAudio(){
     const b=actx.createBuffer(1,1,22050),s=actx.createBufferSource();s.buffer=b;s.connect(actx.destination);s.start(0);
   }catch(e){}
   if(!ttsWarm){ttsWarm=true;try{speechSynthesis.speak(new SpeechSynthesisUtterance(' '))}catch(e){}}
+  goFullscreen();
+}
+/* Tam ekran: iPad ve Android'de ilk dokunuşta açılır. iPhone'da tarayıcı buna izin vermez;
+   orada "Paylaş → Ana Ekrana Ekle" ile açılan simge tam ekran çalışır. */
+let fsTried=false;
+function goFullscreen(){
+  if(fsTried)return;fsTried=true;
+  if(navigator.standalone||matchMedia('(display-mode: standalone)').matches)return;
+  const d=document.documentElement;
+  try{const p=(d.requestFullscreen||d.webkitRequestFullscreen||function(){}).call(d);if(p&&p.catch)p.catch(()=>{})}catch(e){}
 }
 document.addEventListener('touchend',unlockAudio,{passive:true});
 document.addEventListener('click',unlockAudio);
@@ -246,33 +290,66 @@ function say(text,keepPose){return sayParts([{dil:'tr',metin:text}],keepPose)}
 /* ---------- Ses: dinleme ---------- */
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let rec=null;
+/* Mikrofon hep açık: Pıtır konuşmayı bitirince kendiliğinden dinlemeye geçer.
+   Kırmızı düğme mikrofonu kapatır / açar. Uzun süre kimse konuşmazsa mikrofon uyur. */
+let micOn=store.get('mic')!=='off';
+let misses=0;
+function setMic(on){
+  micOn=on;store.set('mic',on?'on':'off');
+  $('#mic').textContent=on?'🎤':'🔇';
+  $('#mic').classList.toggle('off',!on);
+}
+setMic(micOn);
+function mediaOpen(){return $('#media').classList.contains('on')}
+function stopListening(){if(rec)rec.cancel()}
+function autoListen(){if(micOn&&!thinking)setTimeout(()=>{if(micOn&&!rec&&!thinking)listen()},350)}
 function listen(){
   if(!SR){toggleTyped(true);return}
+  if(rec)return;
   const r0=new SR();rec=r0;r0.lang='tr-TR';r0.interimResults=true;r0.maxAlternatives=1;r0.continuous=false;
-  let text='',done=false,silence=null;
+  let text='',done=false,silence=null,maxT=null;
+  const end=()=>{done=true;clearTimeout(silence);clearTimeout(maxT);try{r0.abort()}catch(e){}if(rec===r0)rec=null;$('#mic').classList.remove('rec')};
   // iPad/iPhone'da tarayıcı konuşmanın bittiğini her zaman anlamıyor:
   // çocuk 1,5 saniye susunca dinlemeyi biz bitiriyoruz.
   const finish=()=>{
-    if(done)return;done=true;clearTimeout(silence);clearTimeout(maxT);
-    try{r0.abort()}catch(e){}
-    if(rec===r0)rec=null;
-    $('#mic').classList.remove('rec');
+    if(done)return;end();
     const t=text.trim();
-    if(t)ask(t);else if(!thinking){pose('listen');$('#caption').textContent='Seni duyamadım, bir daha dener misin?'}
+    if(t){misses=0;ask(t);return}
+    if(thinking)return;
+    misses++;
+    if(micOn&&misses<4){listen();return}          // sessizce dinlemeye devam
+    misses=0;setMic(false);pose('happy',mediaOpen());
+    $('#caption').textContent='Mikrofon uyudu. Konuşmak için 🔇 düğmesine dokun.';
   };
   const arm=ms=>{clearTimeout(silence);silence=setTimeout(finish,ms)};
-  const maxT=setTimeout(finish,15000);
+  maxT=setTimeout(finish,15000);
   r0.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;text=t;$('#heard').textContent='“'+t+'”';
     if(e.results[e.results.length-1].isFinal)arm(300);else arm(1500)};
-  r0.onerror=e=>{console.warn(e.error);if(e.error==='not-allowed'){done=true;rec=null;$('#mic').classList.remove('rec');toggleTyped(true)}else finish()};
+  r0.onerror=e=>{console.warn(e.error);
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+      end();setMic(false);
+      $('#caption').textContent='Konuşmak için 🔇 düğmesine dokun.';
+    }else finish()};
   r0.onend=()=>finish();
-  arm(8000); // hiç konuşmazsa 8 saniye sonra bırak
-  $('#heard').textContent='';$('#mic').classList.add('rec');pose('listen');closeMedia();
+  arm(8000); // hiç konuşmazsa 8 saniye sonra yeniden dene
+  r0.finish=finish;r0.cancel=end;
+  $('#heard').textContent='';$('#mic').classList.add('rec');pose('listen',mediaOpen());
   $('#caption').textContent='Dinliyorum...';
-  r0.finish=finish;
-  r0.start();
+  try{r0.start()}catch(e){end()}
 }
-$('#mic').onclick=()=>{unlockAudio();if(rec){rec.finish();return}if(thinking)return;stopTalking();listen()};
+$('#mic').onclick=()=>{
+  unlockAudio();started=true;
+  if(micOn){                       // kapat
+    setMic(false);stopListening();
+    if(!busy){pose('happy',mediaOpen());$('#caption').textContent='Mikrofon kapalı. Açmak için 🔇 düğmesine dokun.'}
+    return;
+  }
+  setMic(true);misses=0;           // aç
+  if(thinking)return;
+  stopTalking();listen();
+};
+// Pıtır konuşurken ona ya da resme dokunursan susar ve seni dinler.
+$('#stage').addEventListener('click',()=>{if(!started||thinking||rec)return;stopTalking();if(micOn)listen()});
 function toggleTyped(on){$('#typed').classList.toggle('on',on);if(on)setTimeout(()=>$('#q').focus(),50)}
 $('#kb').onclick=()=>{unlockAudio();toggleTyped(!$('#typed').classList.contains('on'))};
 $('#send').onclick=()=>{const t=$('#q').value.trim();if(t){$('#q').value='';toggleTyped(false);$('#heard').textContent='“'+t+'”';ask(t)}};
@@ -381,7 +458,7 @@ function openMedia({images,video}){
 let thinking=false;
 async function ask(question){
   if(thinking)return;thinking=true;busy=true;$('#mic').disabled=true;
-  stopTalking();closeMedia();pose('think');$('#caption').textContent='Hımm, bir düşüneyim...';
+  stopListening();stopTalking();closeMedia();pose('think');$('#caption').textContent='Hımm, bir düşüneyim...';
   let ans=null;
   try{
     ans=await askAI(question);
@@ -393,12 +470,14 @@ async function ask(question){
     const finished=await sayParts(ans.parcalar,false);
     if(!finished)return;
     if(!hasMedia)pose(ans.dinle?'listen':'happy');
-    if(ans.dinle){$('#caption').textContent='Senin sıran! 🎤';try{listen()}catch(e){}}
+    busy=false;
+    if(micOn)autoListen();
+    else if(ans.dinle)$('#caption').textContent='Senin sıran! 🔇 düğmesine dokunup cevap ver.';
   }catch(e){
     console.error(e);pose('think');
     const msg=String(e.message||e);
     if(/AI 401|AI 403/.test(msg))$('#caption').textContent='Anahtar hatalı görünüyor. ⚙︎ düğmesinden kontrol edin.';
-    else{thinking=false;await say('Ay, kanatlarım karıştı! Bir daha sorar mısın?')}
+    else{thinking=false;busy=false;if(await say('Ay, kanatlarım karıştı! Bir daha sorar mısın?'))autoListen()}
   }finally{thinking=false;busy=false;$('#mic').disabled=false}
 }
 
