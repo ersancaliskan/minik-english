@@ -161,19 +161,24 @@ function start(){
 }
 
 /* ---------- Ses: konuşma ---------- */
-const player=new Audio();
-let audioUnlocked=false;
+/* iPad/iPhone sesi sadece dokunuşla açar. Bir dokunuşta açılan AudioContext
+   sonra istediğimiz kadar cümle çalabilir; <audio> etiketi ise ikinci cümlede susabiliyor. */
+let actx=null,curSrc=null,ttsWarm=false;
 function unlockAudio(){
-  if(audioUnlocked)return;audioUnlocked=true;
-  player.src='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqpAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
-  player.play().catch(()=>{});
-  try{speechSynthesis.speak(new SpeechSynthesisUtterance(''))}catch(e){}
+  try{
+    if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state!=='running')actx.resume();
+    const b=actx.createBuffer(1,1,22050),s=actx.createBufferSource();s.buffer=b;s.connect(actx.destination);s.start(0);
+  }catch(e){}
+  if(!ttsWarm){ttsWarm=true;try{speechSynthesis.speak(new SpeechSynthesisUtterance(' '))}catch(e){}}
 }
+document.addEventListener('touchend',unlockAudio,{passive:true});
+document.addEventListener('click',unlockAudio);
 function trVoice(){const v=speechSynthesis.getVoices().filter(v=>/^tr/i.test(v.lang));return v.find(v=>/female|yelda|filiz|seda|emel/i.test(v.name))||v[0]}
 /* Konuşma parçalara bölünür: her cümle ayrı okunur ve altyazıda tek tek gösterilir.
    İngilizce/Almanca kelimeler kendi dilinde okunur. */
 let talkId=0;
-function stopTalking(){talkId++;try{speechSynthesis.cancel()}catch(e){}player.pause()}
+function stopTalking(){talkId++;try{speechSynthesis.cancel()}catch(e){}try{curSrc&&curSrc.stop()}catch(e){}curSrc=null}
 function toSentences(parts){
   const out=[];
   for(const p of parts){
@@ -189,7 +194,13 @@ function deviceSpeakLang(text,lang){return new Promise(res=>{
   try{const u=new SpeechSynthesisUtterance(text);u.lang=LANGCODE[lang]||'tr-TR';
     const vs=speechSynthesis.getVoices().filter(v=>v.lang.replace('_','-').toLowerCase().startsWith(lang));
     const v=lang==='tr'?trVoice():(vs.find(v=>/female|samantha|karen|anna|helena/i.test(v.name))||vs[0]);if(v)u.voice=v;
-    u.rate=lang==='tr'?.95:.85;u.pitch=1.2;u.onend=res;u.onerror=res;speechSynthesis.speak(u);
+    u.rate=lang==='tr'?.95:.85;u.pitch=1.2;
+    // Altyazı sesten önce kaçmasın: cümle en az okunma süresi kadar ekranda kalır.
+    const t0=Date.now(),minMs=text.length*55+400;
+    const end=()=>{const w=minMs-(Date.now()-t0);w>0?setTimeout(res,w):res()};
+    u.onend=end;u.onerror=end;
+    if(speechSynthesis.paused)speechSynthesis.resume();
+    speechSynthesis.speak(u);
     setTimeout(res,text.length*130+4000)}catch(e){res()}
 })}
 async function elevenFetch(text){
@@ -197,14 +208,25 @@ async function elevenFetch(text){
     method:'POST',headers:{'xi-api-key':store.get('el'),'Content-Type':'application/json'},
     body:JSON.stringify({text,model_id:'eleven_flash_v2_5',voice_settings:{stability:.45,similarity_boost:.8,style:.3}})});
   if(!r.ok)throw new Error('elevenlabs '+r.status);
-  return URL.createObjectURL(await r.blob());
+  const data=await r.arrayBuffer();
+  return await new Promise((ok,bad)=>actx.decodeAudioData(data,ok,bad));
 }
-function playUrl(url){return new Promise(res=>{player.onended=res;player.onerror=res;player.src=url;player.play().catch(res)})}
+// true: çaldı; false: çalamadı (cihaz sesine geçilir)
+async function playBuffer(buf){
+  try{if(actx.state!=='running')await actx.resume()}catch(e){}
+  if(actx.state!=='running')return false;
+  return new Promise(res=>{
+    const s=actx.createBufferSource();s.buffer=buf;s.connect(actx.destination);curSrc=s;
+    s.onended=()=>{if(curSrc===s)curSrc=null;res(true)};
+    try{s.start(0)}catch(e){res(false)}
+  });
+}
 async function sayParts(parts,keepPose){
   const my=++talkId;
   const lines=toSentences(parts);
   if(!keepPose)pose('talk');
-  const useEl=!!store.get('el');
+  if(!actx)unlockAudio();
+  const useEl=!!store.get('el')&&!!actx;
   const pending=useEl?lines.map(()=>null):[];
   const get=i=>{if(useEl&&i<lines.length&&!pending[i])pending[i]=elevenFetch(lines[i].text).catch(()=>null);return pending[i]};
   for(let i=0;i<lines.length;i++){
@@ -212,8 +234,8 @@ async function sayParts(parts,keepPose){
     const l=lines[i];
     $('#caption').textContent=l.text;
     $('#caption').style.color=l.lang==='tr'?'':'#7a3cff';
-    if(useEl){get(i);get(i+1);const url=await pending[i];if(my!==talkId)return false;
-      if(url){await playUrl(url);continue}}
+    if(useEl){get(i);get(i+1);const buf=await pending[i];if(my!==talkId)return false;
+      if(buf&&await playBuffer(buf))continue}
     await deviceSpeakLang(l.text,l.lang);
   }
   $('#caption').style.color='';
