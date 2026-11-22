@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#CFEFFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pıtır">
+<title>Pıtır – Meraklı Baykuş</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--sky:#CFEFFF;--sky2:#EAF8FF;--orange:#FF8A2B;--ink:#2B3A55;--yellow:#FFD23F;--purple:#9B6BFF;--red:#FF5A5F}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:'Baloo 2',system-ui,sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--sky2),var(--sky));overflow:hidden;user-select:none;-webkit-user-select:none}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom))}
+.screen.on{display:flex}
+h1{font-size:clamp(34px,6vw,60px);margin:0 0 8px;font-weight:800;color:var(--orange);text-shadow:0 3px 0 #fff}
+.btn{border:0;border-radius:28px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.15);transition:transform .1s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.owl{mix-blend-mode:multiply;pointer-events:none}
+/* setup */
+#setup .card{background:#fff;border-radius:24px;padding:24px;max-width:520px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+#setup label{display:block;font-weight:700;margin:14px 0 4px}
+#setup input{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:2px solid #d7e6f2;border-radius:12px;user-select:text;-webkit-user-select:text}
+#setup small{color:#6b7a90;display:block;line-height:1.3}
+#setup .btn{margin-top:18px;width:100%;padding:14px;font-size:22px;background:var(--orange);color:#fff}
+/* age */
+#age .owl{width:min(42vh,360px)}
+.ages{display:flex;gap:24px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.ages .btn{font-size:clamp(28px,5vw,44px);padding:22px 44px;color:#fff}
+/* main */
+#main{justify-content:flex-start}
+#top{position:absolute;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;justify-content:space-between;z-index:5}
+.chip{background:#fff;border:0;border-radius:20px;padding:6px 14px;font:inherit;font-weight:700;font-size:16px;color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.08)}
+#stage{position:absolute;inset:60px 0 150px 0}
+#pitir{position:absolute;width:min(55vh,440px);left:50%;top:50%;transform:translate(-50%,-50%);transition:all .7s cubic-bezier(.5,1.6,.4,1)}
+#pitir.side{width:min(34vh,26vw,300px);left:15%;top:58%}
+#pitir.bob{animation:bob .6s ease-in-out infinite alternate}
+@keyframes bob{from{margin-top:0}to{margin-top:-10px}}
+#media{position:absolute;right:3%;top:2%;bottom:2%;width:66%;background:#fff;border-radius:28px;box-shadow:0 10px 30px rgba(0,0,0,.12);overflow:hidden;opacity:0;transform:scale(.85);transition:all .5s;display:flex;align-items:center;justify-content:center}
+#media.on{opacity:1;transform:scale(1)}
+#media img,#media video{max-width:100%;max-height:100%;object-fit:contain;position:absolute;inset:0;margin:auto;opacity:0;transition:opacity .6s}
+#media img.on,#media video.on{opacity:1}
+#credit{position:absolute;bottom:6px;right:12px;font-size:11px;color:#9aa;z-index:2}
+#dots{position:absolute;bottom:10px;left:0;right:0;display:flex;gap:8px;justify-content:center;z-index:2}
+#dots i{width:12px;height:12px;border-radius:50%;background:#dde}#dots i.on{background:var(--orange)}
+#caption{position:absolute;left:4%;right:4%;bottom:118px;text-align:center;font-size:clamp(20px,3.2vw,32px);font-weight:700;line-height:1.25;min-height:1.3em;text-shadow:0 2px 0 #fff}
+#heard{position:absolute;left:0;right:0;top:64px;text-align:center;font-size:20px;color:#5a6b85;z-index:4}
+#bar{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:0;right:0;display:flex;align-items:center;justify-content:center;gap:18px}
+#mic{width:96px;height:96px;border-radius:50%;background:var(--red);color:#fff;font-size:44px;display:flex;align-items:center;justify-content:center}
+#mic.rec{animation:pulse 1s infinite;background:#ff2d55}
+#mic:disabled{background:#bbb}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,45,85,.6)}100%{box-shadow:0 0 0 28px rgba(255,45,85,0)}}
+#kb{width:56px;height:56px;border-radius:50%;background:#fff;font-size:26px;display:flex;align-items:center;justify-content:center}
+#typed{display:none;position:absolute;bottom:130px;left:50%;transform:translateX(-50%);width:min(90vw,600px);gap:8px;z-index:6}
+#typed.on{display:flex}
+#typed input{flex:1;font:inherit;font-size:20px;padding:10px 16px;border-radius:20px;border:2px solid #cfe0ee;user-select:text;-webkit-user-select:text}
+#typed .btn{padding:8px 18px;background:var(--orange);color:#fff;font-size:20px}
+</style>
+</head>
+<body>
+
+<!-- Ebeveyn kurulumu (bir kez) -->
+<div class="screen" id="setup">
+  <div class="card">
+    <h1 style="font-size:34px">Ebeveyn ayarı</h1>
+    <small>Bu bilgiler sadece bu cihazda saklanır, internete yüklenmez.</small>
+    <label>Yapay zekâ anahtarı (Claude veya ChatGPT)</label>
+    <input id="k-ai" placeholder="sk-ant-...  ya da  sk-..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <small>Claude: console.anthropic.com → API Keys. ChatGPT: platform.openai.com → API keys.</small>
+    <label>ElevenLabs anahtarı (isteğe bağlı)</label>
+    <input id="k-el" placeholder="Boş bırakılırsa cihazın Türkçe sesi kullanılır" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label>ElevenLabs ses kimliği</label>
+    <input id="k-voice" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="btn" id="save">Kaydet</button>
+  </div>
+</div>
+
+<!-- Yaş seçimi -->
+<div class="screen" id="age">
+  <img class="owl" id="age-owl" alt="Pıtır">
+  <h1>Merhaba! Ben Pıtır</h1>
+  <div style="font-size:24px;font-weight:700">Kaç yaşındasın?</div>
+  <div class="ages">
+    <button class="btn" style="background:var(--yellow);color:var(--ink)" data-age="4-5">4–5 yaş</button>
+    <button class="btn" style="background:var(--purple)" data-age="6-8">6–8 yaş</button>
+  </div>
+</div>
+
+<!-- Ana ekran -->
+<div class="screen" id="main">
+  <div id="top">
+    <button class="chip" id="age-chip">🦉 4–5 yaş</button>
+    <button class="chip" id="gear" title="Ebeveyn ayarı">⚙︎</button>
+  </div>
+  <div id="heard"></div>
+  <div id="stage">
+    <div id="media"><div id="dots"></div><div id="credit">Görseller: Wikipedia</div></div>
+    <img class="owl" id="pitir" alt="Pıtır">
+  </div>
+  <div id="caption"></div>
+  <div id="typed"><input id="q" placeholder="Sorunu yaz..." enterkeyhint="send"><button class="btn" id="send">Sor</button></div>
+  <div id="bar">
+    <button class="btn" id="kb" title="Yazarak sor">⌨︎</button>
+    <button class="btn" id="mic" title="Konuş">🎤</button>
+    <div style="width:56px"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- Pıtır pozları ---------- */
+const CDN='https://d8j0ntlcm91z4.cloudfront.net/user_2z7aREX7HPDJ5L6kNw33ieVb9Rq/';
+const POSE={
+  listen: CDN+'hf_20261122_153137_2b0800e5-7947-41bf-9359-52176e49d6cb.png',
+  talk:   CDN+'hf_20261122_153137_0eb32132-6656-4729-929d-01aa546794ee.png',
+  show:   CDN+'hf_20261122_153137_6723ed7b-5aa7-4cab-8d48-b0b96b8b7f22.png',
+  happy:  CDN+'hf_20261122_153138_615206f0-ae54-42a3-a124-6e4ca857f29e.png',
+  think:  CDN+'hf_20261122_153138_95ddf44e-8139-4e33-b30a-036b223567ee.png'
+};
+Object.values(POSE).forEach(u=>{const i=new Image();i.src=u});
+
+const $=s=>document.querySelector(s);
+const store={get:k=>{try{return localStorage.getItem('pitir-'+k)||''}catch(e){return ''}},set:(k,v)=>{try{localStorage.setItem('pitir-'+k,v)}catch(e){}}};
+const DEFAULT_VOICE='EJGs6dWlD5VrB3llhBqB'; // Çiçek
+let AGE=store.get('age');
+let history=[];
+let busy=false;
+
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on',s.id===id))}
+function pose(p,side){const el=$('#pitir');el.src=POSE[p];el.classList.toggle('side',!!side);el.classList.toggle('bob',p==='talk'||p==='show')}
+
+/* ---------- Kurulum ---------- */
+$('#k-voice').value=store.get('voice')||DEFAULT_VOICE;
+$('#save').onclick=()=>{
+  const k=$('#k-ai').value.trim();
+  if(!k){alert('Yapay zekâ anahtarı gerekli.');return}
+  store.set('ai',k);store.set('el',$('#k-el').value.trim());store.set('voice',$('#k-voice').value.trim()||DEFAULT_VOICE);
+  start();
+};
+$('#gear').onclick=()=>{
+  if(!confirm('Ebeveyn ayarlarını açmak istiyor musun?'))return;
+  $('#k-ai').value=store.get('ai');$('#k-el').value=store.get('el');show('setup');
+};
+
+/* ---------- Yaş ---------- */
+$('#age-owl').src=POSE.happy;
+document.querySelectorAll('[data-age]').forEach(b=>b.onclick=()=>{AGE=b.dataset.age;store.set('age',AGE);unlockAudio();goMain(true)});
+$('#age-chip').onclick=()=>{if(!busy)show('age')};
+
+function goMain(greet){
+  $('#age-chip').textContent='🦉 '+AGE.replace('-','–')+' yaş';
+  show('main');closeMedia();pose('happy');
+  if(greet){history=[];say('Merhaba! Ben Pıtır. Merak ettiğin her şeyi bana sorabilirsin. Kırmızı düğmeye bas ve konuş!')}
+  else $('#caption').textContent='Kırmızı düğmeye bas ve bana bir soru sor!';
+}
+function start(){
+  if(!store.get('ai')){show('setup');return}
+  if(!AGE){show('age');return}
+  goMain(false);
+}
+
+/* ---------- Ses: konuşma ---------- */
+const player=new Audio();
+let audioUnlocked=false;
+function unlockAudio(){
+  if(audioUnlocked)return;audioUnlocked=true;
+  player.src='data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqpAAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+  player.play().catch(()=>{});
+  try{speechSynthesis.speak(new SpeechSynthesisUtterance(''))}catch(e){}
+}
+function trVoice(){const v=speechSynthesis.getVoices().filter(v=>/^tr/i.test(v.lang));return v.find(v=>/female|yelda|filiz|seda|emel/i.test(v.name))||v[0]}
+function deviceSpeak(text){return new Promise(res=>{
+  try{const u=new SpeechSynthesisUtterance(text);u.lang='tr-TR';const v=trVoice();if(v)u.voice=v;u.rate=.95;u.pitch=1.25;
+    u.onend=res;u.onerror=res;speechSynthesis.cancel();speechSynthesis.speak(u);
+    setTimeout(res,text.length*120+4000)}catch(e){res()}
+})}
+async function elevenSpeak(text){
+  const r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+(store.get('voice')||DEFAULT_VOICE)+'?output_format=mp3_44100_128',{
+    method:'POST',headers:{'xi-api-key':store.get('el'),'Content-Type':'application/json'},
+    body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:.45,similarity_boost:.8,style:.3}})});
+  if(!r.ok)throw new Error('elevenlabs '+r.status);
+  const url=URL.createObjectURL(await r.blob());
+  return new Promise(res=>{player.onended=res;player.onerror=res;player.src=url;player.play().catch(res)});
+}
+async function say(text,keepPose){
+  $('#caption').textContent=text;
+  if(!keepPose)pose('talk');
+  if(store.get('el')){try{await elevenSpeak(text);return}catch(e){console.warn(e)}}
+  await deviceSpeak(text);
+}
+
+/* ---------- Ses: dinleme ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null;
+function listen(){
+  if(!SR){toggleTyped(true);return}
+  rec=new SR();rec.lang='tr-TR';rec.interimResults=true;rec.maxAlternatives=1;rec.continuous=false;
+  let finalText='';
+  rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#heard').textContent='“'+t+'”';if(e.results[e.results.length-1].isFinal)finalText=t};
+  rec.onerror=e=>{console.warn(e.error);if(e.error==='not-allowed')toggleTyped(true)};
+  rec.onend=()=>{$('#mic').classList.remove('rec');rec=null;
+    const t=(finalText||$('#heard').textContent.replace(/[“”]/g,'')).trim();
+    if(t)ask(t);else if(!busy){pose('listen');$('#caption').textContent='Seni duyamadım, bir daha dener misin?'}};
+  $('#heard').textContent='';$('#mic').classList.add('rec');pose('listen');closeMedia();
+  $('#caption').textContent='Dinliyorum...';
+  rec.start();
+}
+$('#mic').onclick=()=>{unlockAudio();if(busy)return;if(rec){rec.stop();return}speechSynthesis.cancel();player.pause();listen()};
+function toggleTyped(on){$('#typed').classList.toggle('on',on);if(on)setTimeout(()=>$('#q').focus(),50)}
+$('#kb').onclick=()=>{unlockAudio();toggleTyped(!$('#typed').classList.contains('on'))};
+$('#send').onclick=()=>{const t=$('#q').value.trim();if(t){$('#q').value='';toggleTyped(false);$('#heard').textContent='“'+t+'”';ask(t)}};
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')$('#send').click()});
+
+/* ---------- Yapay zekâ ---------- */
+function systemPrompt(){
+  const small=AGE==='4-5';
+  return `Sen Pıtır'sın: meraklı, neşeli, turuncu bir baykuş yavrusu kâşif. ${small?'4-5':'6-8'} yaşındaki bir çocukla Türkçe konuşuyorsun. Çocuk sana sesli soru soruyor, senin cevabın sesli okunacak.
+
+Nasıl anlatırsın:
+${small
+?'- En fazla 3 kısa cümle. Çok basit, günlük kelimeler. Çocuğun bildiği şeylerle benzetme yap (oyuncak, mutfak, banyo, park gibi).'
+:'- 3 ila 5 kısa cümle. Basitçe "neden öyle olduğunu" da anlat. Günlük hayattan bir benzetme kullan.'}
+- Sıcak ve neşeli ol, çocuğu sorusu için öv ama abartma. Bazen sonunda küçük bir merak sorusu sor.
+- Emoji, madde işareti, parantez kullanma; düz konuşma dili yaz.
+- Bilmediğin şeyi uydurma; emin değilsen "Bunu bir büyüğünle birlikte araştırabilirsin" de.
+- Korkutucu ayrıntı verme (yaralanma, ölüm sayıları vb.). Tehlikeli bir şeyse "Böyle bir şey olursa hemen bir büyüğüne haber ver" de.
+- Çocuğa uygun olmayan konularda nazikçe "Bunu annene ya da babana sorabilirsin" de ve başka güzel bir konu öner.
+- Çocuğun adresini, okulunu, telefonunu ya da tam adını asla sorma.
+
+Görseller: Cevabın ekranda resimlerle gösterilecek. Resimler İngilizce Wikipedia makalesinden alınacak. Konuyu en iyi gösteren 1 ya da 2 İngilizce Wikipedia makale başlığı yaz (örnek: "Tornado", "Rainbow", "Giraffe"). Selamlaşma ya da sohbet gibi görsel gerekmeyen durumlarda boş liste ver. Çocuğa uygun olmayabilecek makale seçme.
+
+Çıktın SADECE şu JSON olsun, başka hiçbir şey yazma:
+{"cevap":"çocuğa söyleyeceğin metin","wikipedia":["Makale başlığı"],"video":true}
+"video", konuyu hareketli göstermek faydalıysa true olsun (hortum, yanardağ, hayvan hareketleri gibi).`;
+}
+async function askAI(question){
+  const key=store.get('ai');
+  const msgs=[...history.slice(-6),{role:'user',content:question}];
+  let text;
+  if(key.startsWith('sk-ant-')){
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{
+      'x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true','content-type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:600,system:systemPrompt(),messages:msgs})});
+    if(!r.ok)throw new Error('AI '+r.status+' '+(await r.text()).slice(0,200));
+    const d=await r.json();text=d.content.map(c=>c.text||'').join('');
+  }else{
+    const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{
+      'Authorization':'Bearer '+key,'Content-Type':'application/json'},
+      body:JSON.stringify({model:'gpt-4o-mini',response_format:{type:'json_object'},messages:[{role:'system',content:systemPrompt()},...msgs]})});
+    if(!r.ok)throw new Error('AI '+r.status+' '+(await r.text()).slice(0,200));
+    const d=await r.json();text=d.choices[0].message.content;
+  }
+  let out;
+  try{out=JSON.parse(text.slice(text.indexOf('{'),text.lastIndexOf('}')+1))}catch(e){out={cevap:text,wikipedia:[],video:false}}
+  history.push({role:'user',content:question},{role:'assistant',content:JSON.stringify(out)});
+  return out;
+}
+
+/* ---------- Görseller (Wikipedia) ---------- */
+const BAD=/(icon|logo|flag|symbol|ambox|question_book|portal|padlock|disambig|locator|map|edit-clear|commons-|wikiquote|wiktionary|signature|stub|crystal_clear|nuvola|red_pencil|folder|diagram)/i;
+async function wikiMedia(titles,wantVideo){
+  const images=[],videos=[];
+  for(const t of (titles||[]).slice(0,2)){
+    try{
+      const s=await (await fetch('https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query&list=search&srlimit=1&srsearch='+encodeURIComponent(t))).json();
+      const title=s.query?.search?.[0]?.title;if(!title)continue;
+      const lead=await (await fetch('https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query&prop=pageimages&piprop=original&titles='+encodeURIComponent(title))).json();
+      const lp=Object.values(lead.query?.pages||{})[0];
+      if(lp?.original?.source&&!/\.svg$/i.test(lp.original.source))images.push(lp.original.source);
+      const g=await (await fetch('https://en.wikipedia.org/w/api.php?origin=*&format=json&action=query&generator=images&gimlimit=40&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=1000&titles='+encodeURIComponent(title))).json();
+      for(const p of Object.values(g.query?.pages||{})){
+        const ii=p.imageinfo?.[0];if(!ii||BAD.test(p.title))continue;
+        if(/^image\/(jpeg|png|gif)$/.test(ii.mime)&&ii.width>=400&&ii.height>=250)images.push(ii.thumburl||ii.url);
+        else if(wantVideo&&/^(video\/|application\/ogg)/.test(ii.mime))videos.push(ii.url);
+      }
+    }catch(e){console.warn(e)}
+  }
+  const seen=new Set();
+  const uniq=images.filter(u=>{const k=decodeURIComponent(u.split('/').pop()).replace(/^\d+px-/,'');if(seen.has(k))return false;seen.add(k);return true});
+  return {images:uniq.slice(0,5),video:videos[0]||null};
+}
+
+/* ---------- Medya paneli ---------- */
+let slideTimer=null;
+function closeMedia(){clearInterval(slideTimer);const m=$('#media');m.classList.remove('on');m.querySelectorAll('img,video').forEach(e=>e.remove());$('#dots').innerHTML=''}
+function openMedia({images,video}){
+  closeMedia();
+  const m=$('#media'),items=[];
+  if(video){const v=document.createElement('video');v.src=video;v.muted=true;v.playsInline=true;v.loop=true;v.autoplay=true;
+    v.onerror=()=>{v.remove()};m.appendChild(v);items.push(v)}
+  images.forEach(u=>{const i=new Image();i.src=u;i.onerror=()=>i.remove();m.appendChild(i);items.push(i)});
+  if(!items.length)return false;
+  $('#dots').innerHTML=items.map(()=>'<i></i>').join('');
+  let k=0;const go=()=>{const live=items.filter(e=>e.isConnected);if(!live.length)return;
+    items.forEach(e=>e.classList.remove('on'));const cur=live[k%live.length];cur.classList.add('on');
+    if(cur.tagName==='VIDEO')cur.play().catch(()=>{});
+    [...$('#dots').children].forEach((d,i)=>d.classList.toggle('on',items[i]===cur));k++};
+  go();slideTimer=setInterval(go,4500);
+  m.classList.add('on');
+  return true;
+}
+
+/* ---------- Akış ---------- */
+async function ask(question){
+  if(busy)return;busy=true;$('#mic').disabled=true;
+  closeMedia();pose('think');$('#caption').textContent='Hımm, bir düşüneyim...';
+  try{
+    const ans=await askAI(question);
+    const mediaP=(ans.wikipedia&&ans.wikipedia.length)?wikiMedia(ans.wikipedia,ans.video):Promise.resolve({images:[],video:null});
+    const media=await Promise.race([mediaP,new Promise(r=>setTimeout(()=>r({images:[],video:null}),6000))]);
+    const hasMedia=openMedia(media);
+    if(hasMedia)pose('show',true);
+    await say(ans.cevap,hasMedia);
+    if(!hasMedia){pose('happy')}
+  }catch(e){
+    console.error(e);pose('think');
+    const msg=String(e.message||e);
+    if(/AI 401|AI 403/.test(msg))$('#caption').textContent='Anahtar hatalı görünüyor. ⚙︎ düğmesinden kontrol edin.';
+    else await say('Ay, kanatlarım karıştı! Bir daha sorar mısın?');
+  }finally{busy=false;$('#mic').disabled=false}
+}
+
+start();
+</script>
+</body>
+</html>
