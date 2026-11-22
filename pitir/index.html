@@ -226,18 +226,31 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let rec=null;
 function listen(){
   if(!SR){toggleTyped(true);return}
-  rec=new SR();rec.lang='tr-TR';rec.interimResults=true;rec.maxAlternatives=1;rec.continuous=false;
-  let finalText='';
-  rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;$('#heard').textContent='“'+t+'”';if(e.results[e.results.length-1].isFinal)finalText=t};
-  rec.onerror=e=>{console.warn(e.error);if(e.error==='not-allowed')toggleTyped(true)};
-  rec.onend=()=>{$('#mic').classList.remove('rec');rec=null;
-    const t=(finalText||$('#heard').textContent.replace(/[“”]/g,'')).trim();
-    if(t)ask(t);else if(!busy){pose('listen');$('#caption').textContent='Seni duyamadım, bir daha dener misin?'}};
+  const r0=new SR();rec=r0;r0.lang='tr-TR';r0.interimResults=true;r0.maxAlternatives=1;r0.continuous=false;
+  let text='',done=false,silence=null;
+  // iPad/iPhone'da tarayıcı konuşmanın bittiğini her zaman anlamıyor:
+  // çocuk 1,5 saniye susunca dinlemeyi biz bitiriyoruz.
+  const finish=()=>{
+    if(done)return;done=true;clearTimeout(silence);clearTimeout(maxT);
+    try{r0.abort()}catch(e){}
+    if(rec===r0)rec=null;
+    $('#mic').classList.remove('rec');
+    const t=text.trim();
+    if(t)ask(t);else if(!thinking){pose('listen');$('#caption').textContent='Seni duyamadım, bir daha dener misin?'}
+  };
+  const arm=ms=>{clearTimeout(silence);silence=setTimeout(finish,ms)};
+  const maxT=setTimeout(finish,15000);
+  r0.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;text=t;$('#heard').textContent='“'+t+'”';
+    if(e.results[e.results.length-1].isFinal)arm(300);else arm(1500)};
+  r0.onerror=e=>{console.warn(e.error);if(e.error==='not-allowed'){done=true;rec=null;$('#mic').classList.remove('rec');toggleTyped(true)}else finish()};
+  r0.onend=()=>finish();
+  arm(8000); // hiç konuşmazsa 8 saniye sonra bırak
   $('#heard').textContent='';$('#mic').classList.add('rec');pose('listen');closeMedia();
   $('#caption').textContent='Dinliyorum...';
-  rec.start();
+  r0.finish=finish;
+  r0.start();
 }
-$('#mic').onclick=()=>{unlockAudio();if(rec){rec.stop();return}if(thinking)return;stopTalking();listen()};
+$('#mic').onclick=()=>{unlockAudio();if(rec){rec.finish();return}if(thinking)return;stopTalking();listen()};
 function toggleTyped(on){$('#typed').classList.toggle('on',on);if(on)setTimeout(()=>$('#q').focus(),50)}
 $('#kb').onclick=()=>{unlockAudio();toggleTyped(!$('#typed').classList.contains('on'))};
 $('#send').onclick=()=>{const t=$('#q').value.trim();if(t){$('#q').value='';toggleTyped(false);$('#heard').textContent='“'+t+'”';ask(t)}};
